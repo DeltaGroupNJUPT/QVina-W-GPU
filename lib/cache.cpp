@@ -44,10 +44,6 @@
 #include "file.h"
 #include "szv_grid.h"
 
-
-//OpenCL Related
-#include "wrapcl.h"
-
 cache::cache(const std::string& scoring_function_version_, const grid_dims& gd_, fl slope_, atom_type::t atom_typing_used_) 
 : scoring_function_version(scoring_function_version_), gd(gd_), slope(slope_), atu(atom_typing_used_), grids(num_atom_types(atom_typing_used_)) {}
 
@@ -83,24 +79,15 @@ fl cache::eval_deriv(      model& m, fl v) const { // needs m.coords, sets m.min
 	return e;
 }
 
-/*
-* Added by Glinttsd
-* Function to get grids
-*/
+// 20211207 Glinttsd
 std::vector<grid> cache::get_grids() const {
 	return this->grids;
 }
-/*
-* Added by Glinttsd
-* Function to get atu
-*/
+
 int cache::get_atu() const {
 	return this->atu;
 }
-/*
-* Added by Glinttsd
-* Function to get atu
-*/
+
 double cache::get_slope() const {
 	return this->slope;
 }

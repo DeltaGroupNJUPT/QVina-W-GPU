@@ -339,7 +339,7 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 				 bool score_only, bool local_only, bool randomize_only, bool write_history, bool no_cache,
 				 const grid_dims& gd, int exhaustiveness,
 				 const flv& weights,
-				 int cpu, int seed, int verbosity, sz num_modes, fl energy_range, tee& log) {
+				 int cpu, int seed, int verbosity, sz num_modes, fl energy_range, tee& log, int search_depth, int thread) {
 
 	doing(verbosity, "Setting up the scoring function", log);
 
@@ -360,6 +360,16 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 	parallel_mc par;
 	sz heuristic = m.num_movable_atoms() + 10 * m.get_size().num_degrees_of_freedom();
 	par.mc.num_steps = unsigned(70 * 3 * (50 + heuristic) / 2); // 2 * 70 -> 8 * 20 // FIXME
+	par.mc.search_depth = search_depth;// Glinttsd 20211207
+	if (search_depth != 0) {
+		par.mc.search_depth = search_depth;
+		assert(search_depth >= 1);
+	}
+	else {
+		par.mc.search_depth = (int)(0.24 * m.num_movable_atoms() + 0.29 * m.get_size().num_degrees_of_freedom() - 5.74);
+		if (par.mc.search_depth < 1) par.mc.search_depth = 1;
+	}
+	par.mc.thread = thread;// Glinttsd 20211207
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	par.mc.min_rmsd = 1.0;
 	par.mc.num_saved_mins = 20;
@@ -515,7 +525,8 @@ Thank you!\n";
 		fl center_x, center_y, center_z, size_x, size_y, size_z;
 		int cpu = 0, seed, exhaustiveness, verbosity = 2, num_modes = 9;
 		fl energy_range = 2.0;
-
+		int search_depth = 0; // 20211207 Glinttsd
+		int thread = 0;
 		// -0.035579, -0.005156, 0.840245, -0.035069, -0.587439, 0.05846
 		fl weight_gauss1      = -0.035579;
 		fl weight_gauss2      = -0.005156;
@@ -551,6 +562,8 @@ Thank you!\n";
 		;
 		options_description advanced("Advanced options (see the manual)");
 		advanced.add_options()
+			("thread", value<int>(&thread)->default_value(1000), "the number of computing lanes in Vina-GPU") // 20211207 Glinttsd
+			("search_depth", value<int>(&search_depth)->default_value(0), "the number of search depth in monte carlo") // 20211207 Glinttsd
 			("score_only",     bool_switch(&score_only),     "score only - search space can be omitted")
 			("local_only",     bool_switch(&local_only),     "do local search only")
 			("randomize_only", bool_switch(&randomize_only), "randomize input, attempting to avoid clashes")
@@ -746,7 +759,7 @@ Thank you!\n";
 					score_only, local_only, randomize_only, write_history, false, // no_cache == false
 					gd, exhaustiveness,
 					weights,
-					cpu, seed, verbosity, max_modes_sz, energy_range, log);
+					cpu, seed, verbosity, max_modes_sz, energy_range, log, search_depth, thread);
 	}
 	catch(file_error& e) {
 		std::cerr << "\n\nError: could not open " << e.name << " for " << (e.in ? "reading" : "writing") << ".\n";

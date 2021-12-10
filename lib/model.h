@@ -218,24 +218,23 @@ private:
 	fl clash_penalty_aux(const interacting_pairs& pairs) const;
 
 	vecv internal_coords;
-	vecv coords;
-	vecv minus_forces;
+	//vecv coords;
+	//vecv minus_forces;
 
 	atomv grid_atoms;
-	atomv atoms; // movable, inflex
-	vector_mutable<ligand> ligands;
+	//atomv atoms; // movable, inflex
+	//vector_mutable<ligand> ligands;
 	vector_mutable<residue> flex;
 	context flex_context;
 	interacting_pairs other_pairs; // all except internal to one ligand: ligand-other ligands; ligand-flex/inflex; flex-flex/inflex
 
 	sz m_num_movable_atoms;
 	atom_type::t m_atom_typing_used;
-
-public:
-	vector_mutable<ligand> ligands; //声明一个vector_mutable容器ligands，其元素为ligand类
-	atomv atoms; // movable, inflex
-	vecv coords;          //声明一个容器coords，         容器里面包含若干结构体vec（长度为3的矢量）
-	vecv minus_forces;    //声明一个容器minus_forces，   容器里面包含若干结构体vec（长度为3的矢量）
+public: // Glintstd 20211207
+		vector_mutable<ligand> ligands; 
+		atomv atoms;
+		vecv coords;         
+		vecv minus_forces;   
 };
 
 #endif

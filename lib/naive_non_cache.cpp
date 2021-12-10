@@ -53,9 +53,7 @@ fl naive_non_cache::eval(const model& m, fl v) const { // needs m.coords
 	}
 	return e;
 }
-
-/*Added by Glinttsd
-*/
+// Glinttsd 20211207
 std::vector<grid> naive_non_cache::get_grids()const {
 	assert(false); // This function should not be called!
 	std::vector<grid> g;

@@ -28,8 +28,6 @@
 #include "grid.h"
 #include "model.h"
 
-#include "commonMacros.h"
-
 struct cache_mismatch {};
 struct rigid_mismatch : public cache_mismatch {};
 struct grid_dims_mismatch : public cache_mismatch {};
@@ -48,8 +46,6 @@ struct cache : public igrid {
 #endif
 	void populate(const model& m, const precalculate& p, const szv& atom_types_needed, bool display_progress = true);
 	void populateparalell(const model& m, const precalculate& p, const szv& atom_types_needed, bool display_progress, int noOfCpus);
-	void populate_cl(const model& m, const precalculate& p, const szv& atom_types_needed, bool display_progress = true);
-	bool m_data_check(const szv_grid ig)const;
 public:
 	std::string scoring_function_version;
 	atomv atoms; // for verification

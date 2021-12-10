@@ -126,9 +126,7 @@ fl non_cache::eval_deriv(      model& m, fl v) const { // clean up
 	}
 	return e;
 }
-
-/*Added by Glinttsd
-*/
+// Glinttsd 20201207
 std::vector<grid> non_cache::get_grids()const {
 	assert(false); // This function should not be called!
 	std::vector<grid> g;

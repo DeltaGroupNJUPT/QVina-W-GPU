@@ -25,8 +25,8 @@
 
 #include "ssd.h"
 #include "incrementable.h"
-#include "commonMacros.h"
 #include "visited.h"
+#include "kernel2.h"
 
 struct monte_carlo {
 	unsigned num_steps;
@@ -36,11 +36,9 @@ struct monte_carlo {
 	sz num_saved_mins;
 	fl mutation_amplitude;
 	ssd ssd_par;
-
-	int thread; //parallelism 20210917 Glinttsd
-	int search_depth; // 20210813 Glinttsd
-
-	monte_carlo() : num_steps(2500), temperature(1.2), hunt_cap(10, 1.5, 10), min_rmsd(0.5), num_saved_mins(50), mutation_amplitude(2) {} // T = 600K, R = 2cal/(K*mol) -> temperature = RT = 1.2;  num_steps = 50*lig_atoms = 2500
+	int search_depth;
+	int thread;
+	monte_carlo() : num_steps(5000), temperature(1.2), hunt_cap(10, 1.5, 10), min_rmsd(0.5), num_saved_mins(50), mutation_amplitude(2) {} // T = 600K, R = 2cal/(K*mol) -> temperature = RT = 1.2;  num_steps = 50*lig_atoms = 2500
 
 //	output_type operator()(model& m, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, visited* visited) const;
 //	output_type many_runs(model& m, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator) const;
@@ -50,10 +48,5 @@ struct monte_carlo {
 	void operator()(model& m, output_container& out, output_container& history, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, circularvisited* visited) const;
 //	void many_runs(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator) const;
 	std::vector<output_type> cl_to_vina(output_type_cl result_ptr[], int exhaus) const;
-	void generate_uniform_position(const vec corner1, const vec corner2, std::vector<vec>& uniform_data, int exhaustiveness) const;
-
-
 };
-
 #endif
-
