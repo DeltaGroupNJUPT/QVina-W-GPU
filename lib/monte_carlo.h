@@ -48,5 +48,6 @@ struct monte_carlo {
 	void operator()(model& m, output_container& out, output_container& history, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, circularvisited* visited) const;
 //	void many_runs(model& m, output_container& out, const precalculate& p, const igrid& ig, const vec& corner1, const vec& corner2, sz num_runs, rng& generator) const;
 	std::vector<output_type> cl_to_vina(output_type_cl result_ptr[], int exhaus) const;
+	void generate_uniform_position(const vec corner1, const vec corner2, std::vector<vec>& uniform_data, int exhaustiveness) const;
 };
 #endif
