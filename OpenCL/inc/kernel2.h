@@ -35,7 +35,7 @@
 #define MAX_CONTAINER_SIZE_EVERY_WI 5
 #define EL_TYPE_H_CL 0
 
-#define MAX_SIZE_OF_LIST 6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION
+#define MAX_SIZE_OF_LIST 5 * (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION)
 
 
 typedef struct {
@@ -183,7 +183,7 @@ typedef struct {
 
 typedef struct {
 	float position[3];
-	float orientation[3];
+	float orientation[4];
 	float lig_torsion[MAX_NUM_OF_LIG_TORSION];
 	float flex_torsion[MAX_NUM_OF_FLEX_TORSION];
 	float energy;
@@ -195,12 +195,12 @@ typedef struct {
 	float dimension[3];
 }vec3_cl;
 
+
 typedef struct {
-	ele_cl list_cl[MAX_SIZE_OF_LIST];
+	ele_cl* list_cl[MAX_SIZE_OF_LIST];
+	int counter;
 	int n_variable;
 	int p;
+	float tempf;
 	bool full;
-	std_vector_cl tempx;
-	std_vector_cl tempf;
-	std_vector_cl tempd;
-}circularvisited_cl;
+}individual_container;
