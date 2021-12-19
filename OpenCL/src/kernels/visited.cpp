@@ -57,10 +57,28 @@ inline float dist2_cl(individual_container* list, output_type_cl* now_x, int nei
 		double d = list->list_cl[neighbour]->position[i] - now_x->position[i];
 		out += d * d;
 	}
+	for (int i = 0; i < 4; i++) {
+		double d = list->list_cl[neighbour]->orientation[i] - now_x->orientation[i];
+		out += d * d;
+	}
+	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++) {
+		double d = list->list_cl[neighbour]->lig_torsion[i] - now_x->lig_torsion[i];
+		out += d * d;
+	}
+	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
+		double d = list->list_cl[neighbour]->flex_torsion[i] - now_x->flex_torsion[i];
+		out += d * d;
+	}
+	return out;
 }
 
-inline float dist2_3D_cl() {
-
+inline float dist2_3D_cl(individual_container* list, output_type_cl* now_x, int neighbour) {
+	double d, out = 0;
+	for (int i = 0; i < 3; i++) {
+		d = list->list_cl[neighbour]->position[i] - now_x->position[i];
+		out += d * d;
+	}
+	return out;
 }
 
 inline bool add_to_individual_buffer(individual_container* list, output_type_cl* conf_v, float f, change_cl* change_v) {
@@ -177,12 +195,22 @@ inline bool check_cl(individual_container* list, output_type_cl* now_x, float no
 	}
 }
 
-inline int global_interesting_cl(individual_container* list, output_type_cl* now_x, float now_f, change_cl* now_d) {
+inline int global_interesting_cl(individual_container* list, output_type_cl* now_x, float now_f, change_cl* now_d, int excluded) {
+	ele_cl* nearbyPoints[MAX_SIZE_OF_LIST];
+	float distances[MAX_SIZE_OF_LIST];
+	float dist[MAX_SIZE_OF_LIST];
+	bool notPicked[MAX_SIZE_OF_LIST];
+
+
+	
 
 }
 
 inline int individual_interesting_cl(individual_container* list, output_type_cl* now_x, float now_f, change_cl* now_d, int excluded) {
 	int len = list->counter;
+	float dist[MAX_SIZE_OF_LIST];
+	bool notPicked[MAX_SIZE_OF_LIST];
+	
 	if (len == 0) {
 		return -1; //i.e. interesting
 	}
@@ -190,4 +218,28 @@ inline int individual_interesting_cl(individual_container* list, output_type_cl*
 		if (!list->full) {
 			return -1; //i.e. interesting
 		}
+		for (int i = 0; i < len; i++) {
+			notPicked[i] = true;
+		}
+		for (int i = 0; i < len; i++) {
+			dist[i] = dist2_cl(list, now_x, i);
+		}
+		double min = 1e10;
+		int p = 0;
+		const int maxCheck = 4 * list->n_variable - excluded;
+		int i = 0;
+		for (; i < maxCheck; i++) {
+			min = 1e10;
+			for (int j = 0; j < len; j++) {
+				if (notPicked[j] && (dist[j] < min)) {
+					p = j;
+					min = dist[j];
+				}
+			}
+			notPicked[p] = false;
+			if (check_cl(list, now_x, now_f, now_d, p))
+				return -1; //i.e. interesting
+		}
+		return i;
+	}
 }

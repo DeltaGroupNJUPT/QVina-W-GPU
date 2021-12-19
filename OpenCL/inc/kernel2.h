@@ -204,3 +204,10 @@ typedef struct {
 	float tempf;
 	bool full;
 }individual_container;
+
+typedef struct {
+	ele_cl* global_cl[MAX_SIZE_OF_LIST];
+	int count;
+	int n_varible;
+
+}global_container;
