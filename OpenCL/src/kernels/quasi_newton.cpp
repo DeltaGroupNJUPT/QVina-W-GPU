@@ -696,7 +696,15 @@ void bfgs(					output_type_cl*			x,
 					__constant	ig_cl*				ig_cl_gpu,
 			const	__global	float*				hunt_cap,
 			const				float				epsilon_fl,
-			const				int					max_steps
+			const				int					max_steps,
+								bool				global,
+						   global_container*        g_container,
+			 __private   individual_container*      circularvisited,
+								int					thread,
+								int                 search_depth,
+								vec3_cl             origin,
+								vec3_cl             box_size,
+					__global    ele_cl*             global_ptr
 ) 
 {
 	int n = 3 + 3 + x->lig_torsion_size; // the dimensions of matirx
@@ -733,47 +741,62 @@ void bfgs(					output_type_cl*			x,
 	float f_values[MAX_NUM_OF_BFGS_STEPS + 1];
 	f_values[0] = f0;
 
-	for (int step = 0; step < max_steps; step++) {
+	int ret = 0;
+	ret = global_interesting_cl(g_container, x, f0, g, 0, thread, search_depth, origin, box_size, global_ptr);
+	if (ret >= 0 && individual_interesting_cl(circularvisited, x, f0, g, ret) >= 0) {
+		x->e = f0;
+	}
+	else {
+		add_to_individual_buffer(circularvisited, x, f0, g);
+	
 
-		minus_mat_vec_product(&h, g, &p);
-		float f1 = 0;
+		for (int step = 0; step < max_steps; step++) {
 
-		const float alpha = line_search(	m_cl_gpu,
-											p_cl_gpu,
-											ig_cl_gpu,
-											n,
-											x,
-											g,
-											f0,
-											&p,
-											&x_new,
-											&g_new,
-											&f1,
-											epsilon_fl,
-											hunt_cap
-										);
+			minus_mat_vec_product(&h, g, &p);
+			float f1 = 0;
 
-		change_cl y;
-		change_cl_init_with_change(&y, &g_new);
-		// subtract_change
-		for (int i = 0; i < n; i++) {
-			float tmp = find_change_index_read(&y, i) - find_change_index_read(g, i);
-			find_change_index_write(&y, i, tmp);
-		}
-		f_values[step + 1] = f1;
-		f0 = f1;
-		output_type_cl_init_with_output(x, &x_new);
-		if (!(sqrt(scalar_product(g, g, n)) >= 1e-5))break;
-		change_cl_init_with_change(g, &g_new);
+			const float alpha = line_search(	m_cl_gpu,
+												p_cl_gpu,
+												ig_cl_gpu,
+												n,
+												x,
+												g,
+												f0,
+												&p,
+												&x_new,
+												&g_new,
+												&f1,
+												epsilon_fl,
+												hunt_cap
+											);
 
-		if (step == 0) {
-			float yy = scalar_product(&y, &y, n);
-			if (fabs(yy) > epsilon_fl) {
-				matrix_set_diagonal(&h, alpha * scalar_product(&y, &p, n) / yy);
+			change_cl y;
+			change_cl_init_with_change(&y, &g_new);
+			// subtract_change
+			for (int i = 0; i < n; i++) {
+				float tmp = find_change_index_read(&y, i) - find_change_index_read(g, i);
+				find_change_index_write(&y, i, tmp);
 			}
-		}
+			f_values[step + 1] = f1;
+			f0 = f1;
+			output_type_cl_init_with_output(x, &x_new);
+			if (!(sqrt(scalar_product(g, g, n)) >= 1e-5))break;
+			change_cl_init_with_change(g, &g_new);
 
-		bool h_updated = bfgs_update(&h, &p, &y, alpha, epsilon_fl);
+			if (step == 0) {
+				float yy = scalar_product(&y, &y, n);
+				if (fabs(yy) > epsilon_fl) {
+					matrix_set_diagonal(&h, alpha * scalar_product(&y, &p, n) / yy);
+				}
+			}
+
+			bool h_updated = bfgs_update(&h, &p, &y, alpha, epsilon_fl);
+			add_to_individual_buffer(circularvisited, x, f0, g);
+		}
+	}
+
+	if (!global) {
+		add_to_global_buffer(g_container, thread, search_depth, x, f0, g, origin, box_size, global_ptr);
 	}
 
 	if (!(f0 <= f_orig)) {

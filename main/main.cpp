@@ -339,7 +339,8 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 				 bool score_only, bool local_only, bool randomize_only, bool write_history, bool no_cache,
 				 const grid_dims& gd, int exhaustiveness,
 				 const flv& weights,
-				 int cpu, int seed, int verbosity, sz num_modes, fl energy_range, tee& log, int search_depth, int thread) {
+				 int cpu, int seed, int verbosity, sz num_modes, fl energy_range, tee& log, int search_depth, int thread, 
+				 float center_x, float center_y, float center_z, float size_x, float size_y, float size_z) {
 
 	doing(verbosity, "Setting up the scoring function", log);
 
@@ -370,6 +371,14 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 		if (par.mc.search_depth < 1) par.mc.search_depth = 1;
 	}
 	par.mc.thread = thread;// Glinttsd 20211207
+	//par.mc.origin = origin;
+	//par.mc.box_size = box_size;
+	par.mc.center_x = center_x;
+	par.mc.center_y = center_y;
+	par.mc.center_z = center_z;
+	par.mc.size_x = size_x;
+	par.mc.size_y = size_y;
+	par.mc.size_z = size_z;
 	par.mc.ssd_par.evals = unsigned((25 + m.num_movable_atoms()) / 3);
 	par.mc.min_rmsd = 1.0;
 	par.mc.num_saved_mins = 20;
@@ -750,6 +759,9 @@ Thank you!\n";
 		done(verbosity, log);
 
 //		linearvisited::getInstance();//just to initialize the singleton
+		//vec origin = vec(center_x, center_y, center_z);
+		//vec box_size = vec(size_x, size_y, size_z);
+
 		Octree::setDefaultOrigin(Vec3(center_x,center_y,center_z));
 		Octree::setDefaultHalfDimension(Vec3(size_x,size_y,size_z));
 		Octree::getInstance();
@@ -759,7 +771,7 @@ Thank you!\n";
 					score_only, local_only, randomize_only, write_history, false, // no_cache == false
 					gd, exhaustiveness,
 					weights,
-					cpu, seed, verbosity, max_modes_sz, energy_range, log, search_depth, thread);
+					cpu, seed, verbosity, max_modes_sz, energy_range, log, search_depth, thread, center_x, center_y, center_z, size_x, size_y, size_z);
 	}
 	catch(file_error& e) {
 		std::cerr << "\n\nError: could not open " << e.name << " for " << (e.in ? "reading" : "writing") << ".\n";

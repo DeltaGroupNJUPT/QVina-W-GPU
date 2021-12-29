@@ -111,7 +111,14 @@ void kernel2(	__global	m_cl*			m_cl_global,
 				__global	output_type_cl	results[],
 							int				search_depth,
 							int				e,
-							int				total_wi
+							int				total_wi,
+							float			center_x,
+							float			center_y,
+							float			center_z,
+							float			size_x,
+							float			size_y,
+							float			size_z,
+				__global    ele_cl*         global_ptr
 )
 {
 	int gx = get_global_id(0);
@@ -120,6 +127,11 @@ void kernel2(	__global	m_cl*			m_cl_global,
 	int gl = get_global_linear_id();
 
 	float best_e = INFINITY;
+
+	vec3_cl origin = origin_init(center_x, center_y, center_z);
+	vec3_cl boxsize = boxsize_init(size_x, size_y, size_z);
+
+	
 
 	for (int gll = gl;
 			 gll < e;
@@ -131,10 +143,17 @@ void kernel2(	__global	m_cl*			m_cl_global,
 		m_cl m_cl_gpu;
 		m_cl_init_with_m_cl(m_cl_global, &m_cl_gpu);
 
+		global_container* g_container;
 
+		__private individual_container* list;
 		__private output_type_cl tmp; // private memory, shared only in work item
 		__private change_cl g;
+
 		output_type_cl_init(&tmp, rand_molec_struc_vec_gpu + gll * (SIZE_OF_MOLEC_STRUC / sizeof(float)));
+
+		circularvisited_init_cl(list, &temp);
+		global_init_cl(g_container, &temp);
+
 		g.lig_torsion_size = tmp.lig_torsion_size;
 		// BFGS
 		output_type_cl best_out;
@@ -166,7 +185,15 @@ void kernel2(	__global	m_cl*			m_cl_global,
 					ig_cl_gpu,
 					hunt_cap_gpu,
 					epsilon_fl,
-					bfgs_max_steps
+					bfgs_max_steps,
+					true,
+					g_container, 
+					list,
+					e,
+					search_depth,
+					origin,
+					boxsize,
+					global_ptr
 			);
 			
 			float n = generate_n(rand_maps_gpu->pi_map, map_index);
@@ -179,14 +206,22 @@ void kernel2(	__global	m_cl*			m_cl_global,
 					m_cl_gpu.atoms, m_cl_gpu.m_num_movable_atoms, epsilon_fl);
 				
 				if (tmp.e < best_e) {
-					bfgs(	&tmp,
-							&g,
-							&m_cl_gpu,
-							p_cl_gpu,
-							ig_cl_gpu,
-							authentic_v_gpu,
-							epsilon_fl,
-							bfgs_max_steps
+					bfgs(&candidate,
+						&g,
+						&m_cl_gpu,
+						p_cl_gpu,
+						ig_cl_gpu,
+						hunt_cap_gpu,
+						epsilon_fl,
+						bfgs_max_steps,
+						false,
+						g_container,
+						list,
+						e,
+						search_depth,
+						origin,
+						boxsize,
+						global_ptr
 					);
 					// set
 					if (tmp.e < best_e) {

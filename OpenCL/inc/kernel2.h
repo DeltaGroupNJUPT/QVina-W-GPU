@@ -35,7 +35,9 @@
 #define MAX_CONTAINER_SIZE_EVERY_WI 5
 #define EL_TYPE_H_CL 0
 
-#define MAX_SIZE_OF_LIST 5 * (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION)
+#define MAX_SIZE_OF_LIST (5 * (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION))
+#define MAX_NUM_OF_RESULTS (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION)
+#define MAX_NUM_OF_COUNTER 1000000
 
 
 typedef struct {
@@ -174,12 +176,6 @@ typedef struct {
 	int current_size;
 }out_container;
 
-typedef struct {
-	float position[3];
-	float orientation[3];
-	float lig_torsion[MAX_NUM_OF_LIG_TORSION];
-	float flex_torsion[MAX_NUM_OF_FLEX_TORSION];
-}std_vector_cl;
 
 typedef struct {
 	float position[3];
@@ -192,12 +188,15 @@ typedef struct {
 }ele_cl;
 
 typedef struct {
-	float dimension[3];
+	float x;
+	float y;
+	float z;
+	//float dimension[3];
 }vec3_cl;
 
 
 typedef struct {
-	ele_cl* list_cl[MAX_SIZE_OF_LIST];
+	ele_cl list_cl[MAX_SIZE_OF_LIST];
 	int counter;
 	int n_variable;
 	int p;
@@ -206,8 +205,14 @@ typedef struct {
 }individual_container;
 
 typedef struct {
-	ele_cl* global_cl[MAX_SIZE_OF_LIST];
-	int count;
-	int n_varible;
+	//ele_cl global_cl[MAX_SIZE_OF_LIST];
+	ele_cl nearbyPoints[MAX_NUM_OF_RESULTS];
+	float distances[MAX_NUM_OF_RESULTS];
+	//vec3_cl origin;
+	//vec3_cl size_box;
+	int counter[MAX_NUM_OF_COUNTER];
+	int binary_ID;
+	int n_variable;
+	float tempf;
 
 }global_container;

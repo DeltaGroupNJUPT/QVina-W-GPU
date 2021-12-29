@@ -38,6 +38,13 @@ struct monte_carlo {
 	ssd ssd_par;
 	int search_depth;
 	int thread;
+	float size_x;
+	float size_y;
+	float size_z;
+	float center_x;
+	float center_y;
+	float center_z;
+
 	monte_carlo() : num_steps(5000), temperature(1.2), hunt_cap(10, 1.5, 10), min_rmsd(0.5), num_saved_mins(50), mutation_amplitude(2) {} // T = 600K, R = 2cal/(K*mol) -> temperature = RT = 1.2;  num_steps = 50*lig_atoms = 2500
 
 //	output_type operator()(model& m, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, visited* visited) const;

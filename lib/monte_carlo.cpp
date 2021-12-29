@@ -170,6 +170,8 @@ void monte_carlo::generate_uniform_position(const vec corner1, const vec corner2
 	assert(counter == exhaustiveness);
 }
 
+
+
 #ifndef OPENCL_PART_2
 // out is sorted
 void monte_carlo::operator()(model& m, output_container& out, output_container& history, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, circularvisited* tried) const {
@@ -262,6 +264,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 												default_work_path + "/OpenCL/src/kernels/mutate_conf.cpp",
 												default_work_path + "/OpenCL/src/kernels/matrix.cpp",
 												default_work_path + "/OpenCL/src/kernels/quasi_newton.cpp",
+												default_work_path + "/OpenCL/src/kernels/visited.cpp",
 												default_work_path + "/OpenCL/src/kernels/kernel2.cl" }; // The order of files is important!
 
 	read_n_file(program_file_n, program_size_n, file_paths, NUM_OF_FILES);
@@ -503,6 +506,9 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	}
 	size_t p_cl_size = sizeof(p_cl);
 
+	//prepare origin and size_box
+	
+
 	// Generate random maps
 	random_maps* rand_maps = (random_maps*)malloc(sizeof(random_maps));
 	for (int i = 0; i < MAX_NUM_OF_RANDOM_MAP; i++) {
@@ -523,6 +529,9 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	float mutation_amplitude_float = mutation_amplitude;
 	float epsilon_fl_float = epsilon_fl;
 	int	total_wi = max_wi_size[0] * max_wi_size[1];
+
+	
+	
 
 	/**************************************************************************/
 	/************************    Allocate GPU memory    ***********************/
@@ -564,6 +573,13 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	CreateDeviceBuffer(&m_cl_gpu, CL_MEM_READ_WRITE, m_cl_size, context);
 	err = clEnqueueWriteBuffer(queue, m_cl_gpu, false, 0, m_cl_size, &m_cl, 0, NULL, NULL); checkErr(err);
 
+	//¿ª±Ùglobal_bufferµÄÄÚ´æ
+	size_t global_buffer_size = thread * search_depth * sizeof(output_type_cl);
+	cl_mem globa_buffer_gpu;
+	CreateDeviceBuffer(&globa_buffer_gpu, CL_MEM_READ_WRITE, global_buffer_size, context);
+	err = clEnqueueWriteBuffer(queue, globa_buffer_gpu, false, 0, global_buffer_size, globa_buffer_gpu, 0, NULL, NULL); checkErr(err);
+
+
 	// Preparing p related data
 	cl_mem p_cl_gpu;
 	CreateDeviceBuffer(&p_cl_gpu, CL_MEM_READ_ONLY, p_cl_size, context);
@@ -578,6 +594,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	CreateDeviceBuffer(&authentic_v_gpu, CL_MEM_READ_ONLY, 3 * sizeof(float), context);
 	err = clEnqueueWriteBuffer(queue, authentic_v_gpu, false, 0, 3 * sizeof(float), authentic_v_float, 0, NULL, NULL); checkErr(err);
 
+	
 	// Preparing result data
 	cl_mem results;
 	CreateDeviceBuffer(&results, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, thread * sizeof(output_type_cl), context);
@@ -602,6 +619,13 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetKernelArg(kernels[0], 13, sizeof(int), &search_depth);
 	SetKernelArg(kernels[0], 14, sizeof(int), &thread);
 	SetKernelArg(kernels[0], 15, sizeof(int), &total_wi);
+	SetKernelArg(kernels[0], 16, sizeof(float), &center_x);
+	SetKernelArg(kernels[0], 17, sizeof(float), &center_y);
+	SetKernelArg(kernels[0], 18, sizeof(float), &center_z);
+	SetKernelArg(kernels[0], 19, sizeof(float), &size_x);
+	SetKernelArg(kernels[0], 20, sizeof(float), &size_y);
+	SetKernelArg(kernels[0], 21, sizeof(float), &size_z);
+	SetKernelArg(kernels[0], 22, sizeof(cl_mem), &globa_buffer_gpu);
 	/**************************************************************************/
 	/****************************   Start kernel    ***************************/
 	/**************************************************************************/
@@ -643,6 +667,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	err = clReleaseMemObject(hunt_cap_gpu); checkErr(err);
 	err = clReleaseMemObject(authentic_v_gpu); checkErr(err);
 	err = clReleaseMemObject(results); checkErr(err);
+	err = clReleaseMemObject(globa_buffer_gpu); checkErr(err);
 
 	free(ig_cl_ptr);
 	free(rand_maps);
