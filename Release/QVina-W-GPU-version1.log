@@ -1,0 +1,14 @@
+﻿  wrapcl.cpp
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(132,23): warning C4018: “<”: 有符号/无符号不匹配
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(151,23): warning C4018: “<”: 有符号/无符号不匹配
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(298,23): warning C4018: “<”: 有符号/无符号不匹配
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(285,14): warning C4101: “mem_size”: 未引用的局部变量
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(404,23): warning C4018: “<”: 有符号/无符号不匹配
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(409,23): warning C4018: “<”: 有符号/无符号不匹配
+E:\C++\QVina-W\QVina-W-GPU-version1\OpenCL\src\wrapcl.cpp(437,23): warning C4018: “<”: 有符号/无符号不匹配
+  正在生成代码
+  1 of 6216 functions (<0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    3 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  QVina-W-GPU-version1.vcxproj -> E:\C++\QVina-W\QVina-W-GPU-version1\Release\QVina-W-GPU-version1.exe

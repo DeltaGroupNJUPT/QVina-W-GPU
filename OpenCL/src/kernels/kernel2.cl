@@ -25,7 +25,7 @@ void m_cl_init_with_m_cl(const __global m_cl* m_cl_old, m_cl* m_cl_new) {
 
 
 
-void get_heavy_atom_movable_coords( output_type_cl* tmp, const m_cl* m_cl_gpu) {
+void get_heavy_atom_movable_coords(output_type_cl* tmp, const m_cl* m_cl_gpu) {
 	int counter = 0;
 	for (int i = 0; i < m_cl_gpu->m_num_movable_atoms; i++) {
 		if (m_cl_gpu->atoms[i].types[0] != EL_TYPE_H_CL) {
@@ -118,7 +118,8 @@ void kernel2(	__global	m_cl*			m_cl_global,
 							float			size_x,
 							float			size_y,
 							float			size_z,
-				__global    ele_cl*         global_ptr
+				__global    ele_cl*			global_ptr,
+				__global    int*            count_id
 )
 {
 	int gx = get_global_id(0);
@@ -131,28 +132,26 @@ void kernel2(	__global	m_cl*			m_cl_global,
 	vec3_cl origin = origin_init(center_x, center_y, center_z);
 	vec3_cl boxsize = boxsize_init(size_x, size_y, size_z);
 
-	
-
 	for (int gll = gl;
-			 gll < e;
-			 gll += total_wi
+		gll < e;
+		gll += total_wi
 		)
 	{
-		if (gll % 100 == 0)printf("\nThread %d START", gll);
+		//if (gll % 100 == 0)printf("\nThread %d START", gll);
 
 		m_cl m_cl_gpu;
 		m_cl_init_with_m_cl(m_cl_global, &m_cl_gpu);
 
-		global_container* g_container;
+		global_container g_container;
 
-		__private individual_container* list;
+		__private individual_container list;
 		__private output_type_cl tmp; // private memory, shared only in work item
 		__private change_cl g;
 
 		output_type_cl_init(&tmp, rand_molec_struc_vec_gpu + gll * (SIZE_OF_MOLEC_STRUC / sizeof(float)));
 
-		circularvisited_init_cl(list, &temp);
-		global_init_cl(g_container, &temp);
+		circularvisited_init_cl(&list);
+		global_init_cl(&g_container);
 
 		g.lig_torsion_size = tmp.lig_torsion_size;
 		// BFGS
@@ -163,65 +162,67 @@ void kernel2(	__global	m_cl*			m_cl_global,
 			output_type_cl_init_with_output(&candidate, &tmp);
 
 			int map_index = (step + gll * search_depth) % MAX_NUM_OF_RANDOM_MAP;
-			mutate_conf_cl(	map_index,
-							num_steps,
-							&candidate,
-							rand_maps_gpu->int_map,
-							rand_maps_gpu->sphere_map,
-							rand_maps_gpu->pi_map,
-							m_cl_gpu.ligand.begin,
-							m_cl_gpu.ligand.end,
-							m_cl_gpu.atoms,
-							&m_cl_gpu.m_coords,
-							m_cl_gpu.ligand.rigid.origin[0],
-							epsilon_fl,
-							mutation_amplitude
+			mutate_conf_cl(map_index,
+				num_steps,
+				&candidate,
+				rand_maps_gpu->int_map,
+				rand_maps_gpu->sphere_map,
+				rand_maps_gpu->pi_map,
+				m_cl_gpu.ligand.begin,
+				m_cl_gpu.ligand.end,
+				m_cl_gpu.atoms,
+				&m_cl_gpu.m_coords,
+				m_cl_gpu.ligand.rigid.origin[0],
+				epsilon_fl,
+				mutation_amplitude
 			);
-			
-			bfgs(	&candidate,
-					&g,
-					&m_cl_gpu,
-					p_cl_gpu,
-					ig_cl_gpu,
-					hunt_cap_gpu,
-					epsilon_fl,
-					bfgs_max_steps,
-					true,
-					g_container, 
-					list,
-					e,
-					search_depth,
-					origin,
-					boxsize,
-					global_ptr
+
+			bfgs(&candidate,
+				&g,
+				&m_cl_gpu,
+				p_cl_gpu,
+				ig_cl_gpu,
+				hunt_cap_gpu,
+				epsilon_fl,
+				bfgs_max_steps,
+				true,
+				&g_container,
+				&list,
+				e,
+				search_depth,
+				&origin,
+				&boxsize,
+				global_ptr,
+				count_id
 			);
-			
+
 			float n = generate_n(rand_maps_gpu->pi_map, map_index);
-			
+
 			if (step == 0 || metropolis_accept(tmp.e, candidate.e, 1.2, n)) {
 
 				output_type_cl_init_with_output(&tmp, &candidate);
 
 				set(&tmp, &m_cl_gpu.ligand.rigid, m_cl_gpu.m_coords.coords,
 					m_cl_gpu.atoms, m_cl_gpu.m_num_movable_atoms, epsilon_fl);
-				
+
 				if (tmp.e < best_e) {
-					bfgs(&candidate,
+					bfgs(&tmp,
 						&g,
 						&m_cl_gpu,
 						p_cl_gpu,
 						ig_cl_gpu,
-						hunt_cap_gpu,
+						authentic_v_gpu,
 						epsilon_fl,
 						bfgs_max_steps,
 						false,
-						g_container,
-						list,
+						&g_container,
+						&list,
 						e,
 						search_depth,
-						origin,
-						boxsize,
-						global_ptr
+						&origin,
+						&boxsize,
+						global_ptr,
+						count_id
 					);
 					// set
 					if (tmp.e < best_e) {
@@ -235,11 +236,11 @@ void kernel2(	__global	m_cl*			m_cl_global,
 
 				}
 			}
-			
+
 		}
 
 		// write the best conformation back to CPU
 		write_back(&results[gll], &best_out);
-		if (gll % 100 == 0)printf("\nThread %d FINISH", gll);
+		//if (gll % 100 == 0)printf("\nThread %d FINISH", gll);
 	}
 }

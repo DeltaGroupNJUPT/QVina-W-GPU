@@ -1,0 +1,11 @@
+REMARK  0 active torsions:
+REMARK  status: ('A' for Active; 'I' for Inactive)
+REMARK RMS_REF  0.9000
+ROOT
+ATOM      1  S   SO4   255       1.872  -6.139  -2.210  1.00 46.09     0.261 S 
+ATOM      2  O1  SO4   255       1.361  -7.300  -3.003  1.00 45.03    -0.565 OA
+ATOM      3  O2  SO4   255       3.370  -6.127  -2.427  1.00 49.00    -0.565 OA
+ATOM      4  O3  SO4   255       1.602  -6.259  -0.737  1.00 40.03    -0.565 OA
+ATOM      5  O4  SO4   255       1.278  -4.844  -2.699  1.00 48.71    -0.565 OA
+ENDROOT
+TORSDOF 0

@@ -36,8 +36,8 @@
 #define EL_TYPE_H_CL 0
 
 #define MAX_SIZE_OF_LIST (5 * (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION))
-#define MAX_NUM_OF_RESULTS (6 +  MAX_NUM_OF_LIG_TORSION + MAX_NUM_OF_FLEX_TORSION)
-#define MAX_NUM_OF_COUNTER 1000000
+#define MAX_NUM_OF_RESULTS 8
+//#define MAX_NUM_OF_COUNTER 1000000
 
 
 typedef struct {
@@ -191,7 +191,6 @@ typedef struct {
 	float x;
 	float y;
 	float z;
-	//float dimension[3];
 }vec3_cl;
 
 
@@ -205,14 +204,18 @@ typedef struct {
 }individual_container;
 
 typedef struct {
-	//ele_cl global_cl[MAX_SIZE_OF_LIST];
-	ele_cl nearbyPoints[MAX_NUM_OF_RESULTS];
-	float distances[MAX_NUM_OF_RESULTS];
-	//vec3_cl origin;
-	//vec3_cl size_box;
-	int counter[MAX_NUM_OF_COUNTER];
 	int binary_ID;
 	int n_variable;
-	float tempf;
-
+	int counter;
+	//float tempf;
 }global_container;
+
+
+//typedef struct {
+//	ele_cl nearbyPoints[MAX_NUM_OF_RESULTS];
+//	int counter[MAX_NUM_OF_COUNTER];
+//	float distances[MAX_NUM_OF_RESULTS];	
+//	int binary_ID;
+//	float tempf;
+////	int n_variable;
+//}global_container;

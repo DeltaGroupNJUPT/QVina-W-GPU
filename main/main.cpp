@@ -253,27 +253,28 @@ void do_search(model& m, const boost::optional<model>& ref, const scoring_functi
 		output_container out_cont;
 
 //		time_t start,end;
-		doing(verbosity, "Performing search", log);
-		ptime time_start(microsec_clock::local_time());
+//		doing(verbosity, "Performing search", log);
+//		ptime time_start(microsec_clock::local_time());
 //		time(&start);
 
 		par(m, out_cont, prec, ig, prec_widened, ig_widened, corner1, corner2, generator);
-		done(verbosity, log);
+//		done(verbosity, log);
 
+		std::cout << std::endl;
 		doing(verbosity, "Refining results", log);
 		VINA_FOR_IN(i, out_cont)
 			refine_structure(m, prec, nc, out_cont[i], authentic_v, par.mc.ssd_par.evals);
 
-		ptime time_end(microsec_clock::local_time());
-		time_duration duration(time_end - time_start);
+//		ptime time_end(microsec_clock::local_time());
+//		time_duration duration(time_end - time_start);
 //		time(&end);
 //		printf("\nsearching finished in %.3lf seconds\n",difftime(end,start));
 //		printf("\nsearching finished in %.3lf seconds\n",(duration.total_milliseconds()/1000.0));
-		log << std::string("\nsearching finished in ");
-		log.setf(std::ios::fixed, std::ios::floatfield);
-		log.setf(std::ios::showpoint);
-		log<< std::setprecision(3) << (duration.total_milliseconds()/1000.0);
-		log << std::string(" seconds"); log.endl();log.flush();
+		//log << std::string("\nsearching finished in ");
+		//log.setf(std::ios::fixed, std::ios::floatfield);
+		//log.setf(std::ios::showpoint);
+		//log<< std::setprecision(3) << (duration.total_milliseconds()/1000.0);
+		//log << std::string(" seconds"); log.endl();log.flush();
 
 		if(!out_cont.empty()) {
 			out_cont.sort();
@@ -370,6 +371,7 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 		par.mc.search_depth = (int)(0.24 * m.num_movable_atoms() + 0.29 * m.get_size().num_degrees_of_freedom() - 5.74);
 		if (par.mc.search_depth < 1) par.mc.search_depth = 1;
 	}
+	//std::cout << "Search depth is set to " << par.mc.search_depth << std::endl;
 	par.mc.thread = thread;// Glinttsd 20211207
 	//par.mc.origin = origin;
 	//par.mc.box_size = box_size;
@@ -407,18 +409,36 @@ void main_procedure(model& m, const boost::optional<model>& ref, // m is non-con
 			//TODO read the grid if available
 			if(cache_needed) doing(verbosity, "Analyzing the binding site", log);
 			cache c("scoring_function_version001", gd, slope, atom_type::XS);
-			if(cache_needed) c.populate(m, prec, m.get_movable_atom_types(prec.atom_typing_used()));
-//			if(cache_needed) c.populateparalell(m, prec, m.get_movable_atom_types(prec.atom_typing_used()),false, cpu);
-			if(cache_needed) done(verbosity, log);
-			//TODO write the grid if requested to do
+#ifdef OPENCL_PART_1
+			//clock_t start_time = clock();
+			if (cache_needed) c.populate_cl(m, prec, m.get_movable_atom_types(prec.atom_typing_used()));
+			//clock_t end_time = clock();
+			//printf("\nTotal runtime: %f s", double(end_time - start_time) / CLOCKS_PER_SEC);
+#else
+			if (cache_needed) c.populate(m, prec, m.get_movable_atom_types(prec.atom_typing_used()));
+#endif
+			if (cache_needed) done(verbosity, log);
 			do_search(m, ref, wt, prec, c, prec, c, nc,
-					  out_name,
-					  corner1, corner2,
-					  par, energy_range, num_modes,
-					  seed, verbosity, score_only, local_only, write_history, log, t, weights);
+				out_name,
+				corner1, corner2,
+				par, energy_range, num_modes,
+				seed, verbosity, score_only, local_only, write_history, log, t, weights);
 		}
 	}
 }
+//			if(cache_needed) c.populate(m, prec, m.get_movable_atom_types(prec.atom_typing_used()));
+
+//			if(cache_needed) c.populateparalell(m, prec, m.get_movable_atom_types(prec.atom_typing_used()),false, cpu);
+//			if(cache_needed) done(verbosity, log);
+			//TODO write the grid if requested to do
+		//	do_search(m, ref, wt, prec, c, prec, c, nc,
+		//			  out_name,
+		//			  corner1, corner2,
+		//			  par, energy_range, num_modes,
+		//			  seed, verbosity, score_only, local_only, write_history, log, t, weights);
+		//}
+//	}
+//}
 
 struct usage_error : public std::runtime_error {
 	usage_error(const std::string& message) : std::runtime_error(message) {}
@@ -477,8 +497,9 @@ model parse_bundle(const boost::optional<std::string>& rigid_name_opt, const boo
 }
 
 int main(int argc, char* argv[]) {
+	clock_t start = clock();
 	using namespace boost::program_options;
-	const std::string version_string = "QuickVina-W 1.1 (24 Dec, 2017)";
+	const std::string version_string = "QuickVina-W-GPU 1.1 (24 Dec, 2021)";
 	const std::string error_message = "\n\n\
 Please contact the author, Dr. Oleg Trott <ot14@columbia.edu>, so\n\
 that this problem can be resolved. The reproducibility of the\n\
@@ -532,7 +553,7 @@ Thank you!\n";
 	try {
 		std::string rigid_name, ligand_name, flex_name, config_name, out_name, log_name;
 		fl center_x, center_y, center_z, size_x, size_y, size_z;
-		int cpu = 0, seed, exhaustiveness, verbosity = 2, num_modes = 9;
+		int cpu = 1, seed, exhaustiveness=1, verbosity = 2, num_modes = 9;
 		fl energy_range = 2.0;
 		int search_depth = 0; // 20211207 Glinttsd
 		int thread = 0;
@@ -573,8 +594,8 @@ Thank you!\n";
 		advanced.add_options()
 			("thread", value<int>(&thread)->default_value(1000), "the number of computing lanes in Vina-GPU") // 20211207 Glinttsd
 			("search_depth", value<int>(&search_depth)->default_value(0), "the number of search depth in monte carlo") // 20211207 Glinttsd
-			("score_only",     bool_switch(&score_only),     "score only - search space can be omitted")
-			("local_only",     bool_switch(&local_only),     "do local search only")
+			//("score_only",     bool_switch(&score_only),     "score only - search space can be omitted")
+			//("local_only",     bool_switch(&local_only),     "do local search only")
 			("randomize_only", bool_switch(&randomize_only), "randomize input, attempting to avoid clashes")
 #if WRITE_HISTORY
 			("write_history",  bool_switch(&write_history),  "write history, write search history as 1000 steps pdbqt files")
@@ -588,9 +609,9 @@ Thank you!\n";
 		;
 		options_description misc("Misc (optional)");
 		misc.add_options()
-			("cpu", value<int>(&cpu), "the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")
+			//("cpu", value<int>(&cpu), "the number of CPUs to use (the default is to try to detect the number of CPUs or, failing that, use 1)")
 			("seed", value<int>(&seed), "explicit random seed")
-			("exhaustiveness", value<int>(&exhaustiveness)->default_value(8), "exhaustiveness of the global search (roughly proportional to time): 1+")
+			("exhaustiveness", value<int>(&exhaustiveness)->default_value(1), "exhaustiveness of the global search (roughly proportional to time): 1+")
 			("num_modes", value<int>(&num_modes)->default_value(9), "maximum number of binding modes to generate")
 			("energy_range", value<fl>(&energy_range)->default_value(3.0), "maximum energy difference between the best binding mode and the worst one displayed (kcal/mol)")
 		;
@@ -733,7 +754,7 @@ Thank you!\n";
 				gd[i].end = gd[i].begin + real_span;
 			}
 		}
-		if(vm.count("cpu") == 0) {
+		/*if(vm.count("cpu") == 0) {
 			unsigned num_cpus = boost::thread::hardware_concurrency();
 			if(verbosity > 1) {
 				if(num_cpus > 0)
@@ -745,7 +766,7 @@ Thank you!\n";
 				cpu = num_cpus;
 			else
 				cpu = 1;
-		}
+		}*/
 		if(cpu < 1) 
 			cpu = 1;
 		if(verbosity > 1 && exhaustiveness < cpu)
@@ -753,7 +774,7 @@ Thank you!\n";
 
 		doing(verbosity, "Reading input", log);
 
-		model m       = parse_bundle(rigid_name_opt, flex_name_opt, std::vector<std::string>(1, ligand_name));
+		model m = parse_bundle(rigid_name_opt, flex_name_opt, std::vector<std::string>(1, ligand_name));
 			
 		boost::optional<model> ref;
 		done(verbosity, log);
@@ -808,4 +829,8 @@ Thank you!\n";
 		std::cerr << "\n\nAn unknown error occurred. " << error_message;
 		return 1;
 	}
+
+	clock_t end = clock();
+	std::cout << "QVina-W-GPU total runtime = " << (double)(end - start) / CLOCKS_PER_SEC << " s" << std::endl;
+
 }

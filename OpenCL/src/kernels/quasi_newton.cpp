@@ -6,7 +6,21 @@
 //inline double norm3(const double* a) {
 //	return sqrt(pown(a[0], 2) + pown(a[1], 2) + pown(a[2], 2));
 //}
-
+inline void AtomicAdd(volatile __global float* source, float operand) {
+	//http://suhorukov.blogspot.com/2011/12/opencl-11-atomic-operations-on-floating.html
+	union {
+		unsigned int intVal;
+		float floatVal;
+	} newVal;
+	union {
+		unsigned int intVal;
+		float floatVal;
+	} prevVal;
+	do {
+		prevVal.floatVal = *source;
+		newVal.floatVal = prevVal.floatVal + operand;
+	} while (atomic_cmpxchg((volatile __global unsigned int*)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+}
 
 inline void change_cl_init(change_cl* g, const __global float* ptr) {
 	for (int i = 0; i < 3; i++)g->position[i] = ptr[i];
@@ -84,17 +98,17 @@ inline void curl_without_deriv(float* e, float v, const float epsilon_fl) {
 	}
 }
 
-float g_evaluate(			__constant	grid_cl*	g,
-					const				float*		m_coords,				// double[3]
-					const				float		slope,				// double
-					const				float		v,					// double
-										float*		deriv,				// double[3]
-					const				float		epsilon_fl
+float g_evaluate(__constant	grid_cl* g,
+	const				float* m_coords,				// double[3]
+	const				float		slope,				// double
+	const				float		v,					// double
+	float* deriv,				// double[3]
+	const				float		epsilon_fl
 ) {
 	int m_i = g->m_i;
 	int m_j = g->m_j;
 	int m_k = g->m_k;
-	if(m_i * m_j * m_k == 0)printf("\nkernel2: g_evaluate ERROR!#1");
+	if (m_i * m_j * m_k == 0)printf("\nkernel2: g_evaluate ERROR!#1");
 	float tmp_vec[3] = { m_coords[0] - g->m_init[0],m_coords[1] - g->m_init[1] ,m_coords[2] - g->m_init[2] };
 	float tmp_vec2[3] = { g->m_factor[0],g->m_factor[1] ,g->m_factor[2] };
 	float s[3];
@@ -104,7 +118,7 @@ float g_evaluate(			__constant	grid_cl*	g,
 	int region[3];
 	int a[3];
 	int m_data_dims[3] = { m_i,m_j,m_k };
-	for (int i = 0; i < 3; i++){
+	for (int i = 0; i < 3; i++) {
 		if (s[i] < 0) {
 			miss[i] = -s[i];
 			region[i] = -1;
@@ -136,7 +150,7 @@ float g_evaluate(			__constant	grid_cl*	g,
 	const int x0 = a[0];
 	const int y0 = a[1];
 	const int z0 = a[2];
-		 
+
 	const int x1 = x0 + 1;
 	const int y1 = y0 + 1;
 	const int z1 = z0 + 1;
@@ -154,53 +168,53 @@ float g_evaluate(			__constant	grid_cl*	g,
 	const float x = s[0];
 	const float y = s[1];
 	const float z = s[2];
-		  
+
 	const float mx = 1 - x;
 	const float my = 1 - y;
 	const float mz = 1 - z;
 
 	float f =
 		f000 * mx * my * mz +
-		f100 * x  * my * mz +
-		f010 * mx * y  * mz +
-		f110 * x  * y  * mz +
-		f001 * mx * my * z	+
-		f101 * x  * my * z	+
-		f011 * mx * y  * z	+
-		f111 * x  * y  * z  ;
+		f100 * x * my * mz +
+		f010 * mx * y * mz +
+		f110 * x * y * mz +
+		f001 * mx * my * z +
+		f101 * x * my * z +
+		f011 * mx * y * z +
+		f111 * x * y * z;
 
 	if (deriv) { // valid pointer
 		const float x_g =
 			f000 * (-1) * my * mz +
-			f100 *   1  * my * mz +
-			f010 * (-1) * y  * mz +
-			f110 *	 1  * y  * mz +
-			f001 * (-1) * my * z  +
-			f101 *   1  * my * z  +
-			f011 * (-1) * y  * z  +
-			f111 *   1  * y  * z  ;
+			f100 * 1 * my * mz +
+			f010 * (-1) * y * mz +
+			f110 * 1 * y * mz +
+			f001 * (-1) * my * z +
+			f101 * 1 * my * z +
+			f011 * (-1) * y * z +
+			f111 * 1 * y * z;
 
 
 		const float y_g =
 			f000 * mx * (-1) * mz +
-			f100 * x  * (-1) * mz +
-			f010 * mx *   1  * mz +
-			f110 * x  *   1  * mz +
-			f001 * mx * (-1) * z  +
-			f101 * x  * (-1) * z  +
-			f011 * mx *   1  * z  +
-			f111 * x  *   1  * z  ;
+			f100 * x * (-1) * mz +
+			f010 * mx * 1 * mz +
+			f110 * x * 1 * mz +
+			f001 * mx * (-1) * z +
+			f101 * x * (-1) * z +
+			f011 * mx * 1 * z +
+			f111 * x * 1 * z;
 
 
 		const float z_g =
 			f000 * mx * my * (-1) +
-			f100 * x  * my * (-1) +
-			f010 * mx * y  * (-1) +
-			f110 * x  * y  * (-1) +
-			f001 * mx * my *   1  +
-			f101 * x  * my *   1  +
-			f011 * mx * y  *   1  +
-			f111 * x  * y  *   1  ;
+			f100 * x * my * (-1) +
+			f010 * mx * y * (-1) +
+			f110 * x * y * (-1) +
+			f001 * mx * my * 1 +
+			f101 * x * my * 1 +
+			f011 * mx * y * 1 +
+			f111 * x * y * 1;
 
 		float gradient[3] = { x_g, y_g, z_g };
 
@@ -213,7 +227,7 @@ float g_evaluate(			__constant	grid_cl*	g,
 			deriv[i] = g->m_factor[i] * gradient_everywhere[i] + slope * region[i];
 		}
 		return f + penalty;
-	}	
+	}
 	else {  // none valid pointer
 		printf("\nKernel2: g_evaluate ERROR!#7");
 		curl_without_deriv(&f, v, epsilon_fl);
@@ -222,12 +236,12 @@ float g_evaluate(			__constant	grid_cl*	g,
 }
 
 
-float ig_eval_deriv(						output_type_cl*		x,
-											change_cl*			g, 
-						const				float				v,
-								__constant	ig_cl*				ig_cl_gpu,
-											m_cl*				m_cl_gpu,
-						const				float				epsilon_fl
+float ig_eval_deriv(output_type_cl* x,
+	change_cl* g,
+	const				float				v,
+	__constant	ig_cl* ig_cl_gpu,
+	m_cl* m_cl_gpu,
+	const				float				epsilon_fl
 ) {
 	float e = 0;
 	int nat = num_atom_types(ig_cl_gpu->atu);
@@ -268,58 +282,58 @@ inline void quaternion_to_r3(const float* q, float* orientation_m) {
 	matrix tmp;
 	mat_init(&tmp, 0); // matrix with fixed dimension 3(here we treate this as a regular matrix(not triangular matrix!))
 
-	matrix_set_element(&tmp, 3, 0, 0,		(aa + bb - cc - dd)	);
-	matrix_set_element(&tmp, 3, 0, 1, 2 *	(-ad + bc)			);
-	matrix_set_element(&tmp, 3, 0, 2, 2 *	(ac + bd)			);
-							 
-	matrix_set_element(&tmp, 3, 1, 0, 2 *	(ad + bc)			);
-	matrix_set_element(&tmp, 3, 1, 1,		(aa - bb + cc - dd)	);
-	matrix_set_element(&tmp, 3, 1, 2, 2 *	(-ab + cd)			);
-							 
-	matrix_set_element(&tmp, 3, 2, 0, 2 *	(-ac + bd)			);
-	matrix_set_element(&tmp, 3, 2, 1, 2 *	(ab + cd)			);
-	matrix_set_element(&tmp, 3, 2, 2,		(aa - bb - cc + dd)	);
+	matrix_set_element(&tmp, 3, 0, 0, (aa + bb - cc - dd));
+	matrix_set_element(&tmp, 3, 0, 1, 2 * (-ad + bc));
+	matrix_set_element(&tmp, 3, 0, 2, 2 * (ac + bd));
+
+	matrix_set_element(&tmp, 3, 1, 0, 2 * (ad + bc));
+	matrix_set_element(&tmp, 3, 1, 1, (aa - bb + cc - dd));
+	matrix_set_element(&tmp, 3, 1, 2, 2 * (-ab + cd));
+
+	matrix_set_element(&tmp, 3, 2, 0, 2 * (-ac + bd));
+	matrix_set_element(&tmp, 3, 2, 1, 2 * (ab + cd));
+	matrix_set_element(&tmp, 3, 2, 2, (aa - bb - cc + dd));
 
 	for (int i = 0; i < 9; i++) orientation_m[i] = tmp.data[i];
 }
 
-inline void local_to_lab_direction(			float* out,
-									const	float* local_direction,
-									const	float* orientation_m
+inline void local_to_lab_direction(float* out,
+	const	float* local_direction,
+	const	float* orientation_m
 ) {
-	out[0] =	orientation_m[0] * local_direction[0] +
-				orientation_m[3] * local_direction[1] +
-				orientation_m[6] * local_direction[2];
-	out[1] =	orientation_m[1] * local_direction[0] +
-				orientation_m[4] * local_direction[1] +
-				orientation_m[7] * local_direction[2];
-	out[2] =	orientation_m[2] * local_direction[0] +
-				orientation_m[5] * local_direction[1] +
-				orientation_m[8] * local_direction[2];
+	out[0] = orientation_m[0] * local_direction[0] +
+		orientation_m[3] * local_direction[1] +
+		orientation_m[6] * local_direction[2];
+	out[1] = orientation_m[1] * local_direction[0] +
+		orientation_m[4] * local_direction[1] +
+		orientation_m[7] * local_direction[2];
+	out[2] = orientation_m[2] * local_direction[0] +
+		orientation_m[5] * local_direction[1] +
+		orientation_m[8] * local_direction[2];
 }
 
-inline void local_to_lab(						float*		out,
-							const				float*		origin,
-							const				float*		local_coords,
-							const				float*		orientation_m
+inline void local_to_lab(float* out,
+	const				float* origin,
+	const				float* local_coords,
+	const				float* orientation_m
 ) {
-	out[0] = origin[0] + (	orientation_m[0] * local_coords[0] +
-							orientation_m[3] * local_coords[1] +
-							orientation_m[6] * local_coords[2]
-							);			 
-	out[1] = origin[1] + (	orientation_m[1] * local_coords[0] +
-							orientation_m[4] * local_coords[1] +
-							orientation_m[7] * local_coords[2]
-							);			 
-	out[2] = origin[2] + (	orientation_m[2] * local_coords[0] +
-							orientation_m[5] * local_coords[1] +
-							orientation_m[8] * local_coords[2]
-							);
+	out[0] = origin[0] + (orientation_m[0] * local_coords[0] +
+		orientation_m[3] * local_coords[1] +
+		orientation_m[6] * local_coords[2]
+		);
+	out[1] = origin[1] + (orientation_m[1] * local_coords[0] +
+		orientation_m[4] * local_coords[1] +
+		orientation_m[7] * local_coords[2]
+		);
+	out[2] = origin[2] + (orientation_m[2] * local_coords[0] +
+		orientation_m[5] * local_coords[1] +
+		orientation_m[8] * local_coords[2]
+		);
 }
 
-inline void angle_to_quaternion2(				float*		out,
-									const		float*		axis,
-												float		angle
+inline void angle_to_quaternion2(float* out,
+	const		float* axis,
+	float		angle
 ) {
 	if (norm3(axis) - 1 >= 0.001)printf("\nkernel2: angle_to_quaternion() ERROR!"); // Replace assert(eq(axis.norm(), 1));
 	normalize_angle(&angle);
@@ -331,12 +345,12 @@ inline void angle_to_quaternion2(				float*		out,
 	out[3] = s * axis[2];
 }
 
-void set(	const				output_type_cl* x,
-								rigid_cl*		lig_rigid_gpu,
-								m_coords_cl*		m_coords_gpu,	
-			const				atom_cl*		atoms,				
-			const				int				m_num_movable_atoms,
-			const				float			epsilon_fl
+void set(const				output_type_cl* x,
+	rigid_cl* lig_rigid_gpu,
+	m_coords_cl* m_coords_gpu,
+	const				atom_cl* atoms,
+	const				int				m_num_movable_atoms,
+	const				float			epsilon_fl
 ) {
 	//************** (root) node.set_conf **************// (CHECKED)
 	for (int i = 0; i < 3; i++) lig_rigid_gpu->origin[0][i] = x->position[i]; // set origin
@@ -344,7 +358,7 @@ void set(	const				output_type_cl* x,
 	quaternion_to_r3(lig_rigid_gpu->orientation_q[0], lig_rigid_gpu->orientation_m[0]);// set orientation_m
 	// set coords
 	int begin = lig_rigid_gpu->atom_range[0][0];
-	int end =	lig_rigid_gpu->atom_range[0][1];
+	int end = lig_rigid_gpu->atom_range[0][1];
 	for (int i = begin; i < end; i++) {
 		local_to_lab(m_coords_gpu->coords[i], lig_rigid_gpu->origin[0], &atoms[i].coords, lig_rigid_gpu->orientation_m[0]);
 	}
@@ -355,21 +369,21 @@ void set(	const				output_type_cl* x,
 	for (int current = 1; current < lig_rigid_gpu->num_children + 1; current++) { // current starts from 1 (namely starts from first child node)
 		int parent = lig_rigid_gpu->parent[current];
 		float torsion = x->lig_torsion[current - 1]; // torsions are all related to child nodes
-		local_to_lab(	lig_rigid_gpu->origin[current],
-						lig_rigid_gpu->origin[parent],
-						lig_rigid_gpu->relative_origin[current],
-						lig_rigid_gpu->orientation_m[parent]
-						); // set origin
-		local_to_lab_direction(	lig_rigid_gpu->axis[current],
-								lig_rigid_gpu->relative_axis[current],
-								lig_rigid_gpu->orientation_m[parent]
-								); // set axis
+		local_to_lab(lig_rigid_gpu->origin[current],
+			lig_rigid_gpu->origin[parent],
+			lig_rigid_gpu->relative_origin[current],
+			lig_rigid_gpu->orientation_m[parent]
+		); // set origin
+		local_to_lab_direction(lig_rigid_gpu->axis[current],
+			lig_rigid_gpu->relative_axis[current],
+			lig_rigid_gpu->orientation_m[parent]
+		); // set axis
 		float tmp[4];
-		float parent_q[4] = {	lig_rigid_gpu->orientation_q[parent][0],
+		float parent_q[4] = { lig_rigid_gpu->orientation_q[parent][0],
 								lig_rigid_gpu->orientation_q[parent][1] ,
 								lig_rigid_gpu->orientation_q[parent][2] ,
 								lig_rigid_gpu->orientation_q[parent][3] };
-		float current_axis[3] = {	lig_rigid_gpu->axis[current][0],
+		float current_axis[3] = { lig_rigid_gpu->axis[current][0],
 									lig_rigid_gpu->axis[current][1],
 									lig_rigid_gpu->axis[current][2] };
 
@@ -382,7 +396,7 @@ void set(	const				output_type_cl* x,
 
 		// set coords
 		begin = lig_rigid_gpu->atom_range[current][0];
-		end =	lig_rigid_gpu->atom_range[current][1];
+		end = lig_rigid_gpu->atom_range[current][1];
 		for (int i = begin; i < end; i++) {
 			local_to_lab(m_coords_gpu->coords[i], lig_rigid_gpu->origin[current], &atoms[i].coords, lig_rigid_gpu->orientation_m[current]);
 		}
@@ -390,14 +404,14 @@ void set(	const				output_type_cl* x,
 	//************** end branches_set_conf **************//
 }
 
-void p_eval_deriv(						float*		out,
-										int			type_pair_index,
-										float		r2,
-							__constant	p_cl*		p_cl_gpu,
-					const				float		epsilon_fl
+void p_eval_deriv(float* out,
+	int			type_pair_index,
+	float		r2,
+	__constant	p_cl* p_cl_gpu,
+	const				float		epsilon_fl
 ) {
 	const float cutoff_sqr = p_cl_gpu->m_cutoff_sqr;
-	if(r2 > cutoff_sqr) printf("\nkernel2: p_eval_deriv() ERROR!");
+	if (r2 > cutoff_sqr) printf("\nkernel2: p_eval_deriv() ERROR!");
 	__constant p_m_data_cl* tmp = &p_cl_gpu->m_data[type_pair_index];
 	float r2_factored = tmp->factor * r2;
 	if (r2_factored + 1 >= SMOOTH_SIZE) printf("\nkernel2: p_eval_deriv() ERROR!");
@@ -426,12 +440,12 @@ inline void curl(float* e, float* deriv, float v, const float epsilon_fl) {
 }
 
 //(CHECKED)
-float eval_interacting_pairs_deriv(		__constant	p_cl*			p_cl_gpu,
-									const				float			v,
-									const				lig_pairs_cl*   pairs,
-									const			 	m_coords_cl*		m_coords,
-														m_minus_forces* minus_forces,
-									const				float			epsilon_fl
+float eval_interacting_pairs_deriv(__constant	p_cl* p_cl_gpu,
+	const				float			v,
+	const				lig_pairs_cl* pairs,
+	const			 	m_coords_cl* m_coords,
+	m_minus_forces* minus_forces,
+	const				float			epsilon_fl
 ) {
 	float e = 0;
 
@@ -441,7 +455,7 @@ float eval_interacting_pairs_deriv(		__constant	p_cl*			p_cl_gpu,
 		float coords_a[3] = { m_coords->coords[ip[1]][0], m_coords->coords[ip[1]][1], m_coords->coords[ip[1]][2] };
 		float r[3] = { coords_b[0] - coords_a[0], coords_b[1] - coords_a[1] ,coords_b[2] - coords_a[2] };
 		float r2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
-	
+
 		if (r2 < p_cl_gpu->m_cutoff_sqr) {
 			float tmp[2];
 			p_eval_deriv(tmp, ip[0], r2, p_cl_gpu, epsilon_fl);
@@ -455,16 +469,16 @@ float eval_interacting_pairs_deriv(		__constant	p_cl*			p_cl_gpu,
 	return e;
 }
 
-inline void product(float* res, const float*a,const float*b) {
+inline void product(float* res, const float* a, const float* b) {
 	res[0] = a[1] * b[2] - a[2] * b[1];
 	res[1] = a[2] * b[0] - a[0] * b[2];
 	res[2] = a[0] * b[1] - a[1] * b[0];
 }
 
-void POT_deriv(	const					m_minus_forces* minus_forces,
-				const					rigid_cl*		lig_rigid_gpu,
-				const					m_coords_cl*		m_coords,
-										change_cl*		g
+void POT_deriv(const					m_minus_forces* minus_forces,
+	const					rigid_cl* lig_rigid_gpu,
+	const					m_coords_cl* m_coords,
+	change_cl* g
 ) {
 	int num_torsion = lig_rigid_gpu->num_children;
 	int num_rigid = num_torsion + 1;
@@ -477,15 +491,15 @@ void POT_deriv(	const					m_minus_forces* minus_forces,
 	for (int i = 0; i < num_rigid; i++) {
 		int begin = lig_rigid_gpu->atom_range[i][0];
 		int end = lig_rigid_gpu->atom_range[i][1];
-		for (int k = 0; k < 3; k++)position_derivative_tmp[i][k] = 0; 
+		for (int k = 0; k < 3; k++)position_derivative_tmp[i][k] = 0;
 		for (int k = 0; k < 3; k++)orientation_derivative_tmp[i][k] = 0;
 		for (int j = begin; j < end; j++) {
 			for (int k = 0; k < 3; k++)position_derivative_tmp[i][k] += minus_forces->coords[j][k];
 
-			float tmp1[3] = {	m_coords->coords[j][0] - lig_rigid_gpu->origin[i][0],
+			float tmp1[3] = { m_coords->coords[j][0] - lig_rigid_gpu->origin[i][0],
 								m_coords->coords[j][1] - lig_rigid_gpu->origin[i][1],
 								m_coords->coords[j][2] - lig_rigid_gpu->origin[i][2] };
-			float tmp2[3] = {  minus_forces->coords[j][0],
+			float tmp2[3] = { minus_forces->coords[j][0],
 								minus_forces->coords[j][1],
 								minus_forces->coords[j][2] };
 			float tmp3[3];
@@ -513,7 +527,7 @@ void POT_deriv(	const					m_minus_forces* minus_forces,
 			if (lig_rigid_gpu->children_map[i][j] == true) { // self + children node + product
 				for (int k = 0; k < 3; k++)orientation_derivative[i][k] += orientation_derivative[j][k];
 				float product_out[3];
-				float origin_temp[3] = {	lig_rigid_gpu->origin[j][0] - lig_rigid_gpu->origin[i][0],
+				float origin_temp[3] = { lig_rigid_gpu->origin[j][0] - lig_rigid_gpu->origin[i][0],
 											lig_rigid_gpu->origin[j][1] - lig_rigid_gpu->origin[i][1],
 											lig_rigid_gpu->origin[j][2] - lig_rigid_gpu->origin[i][2] };
 				product(product_out, origin_temp, position_derivative[j]);
@@ -535,31 +549,31 @@ void POT_deriv(	const					m_minus_forces* minus_forces,
 }
 
 
-float m_eval_deriv(					output_type_cl*		c,
-										change_cl*			g,
-										m_cl*				m_cl_gpu,
-							__constant	p_cl*				p_cl_gpu,
-							__constant	ig_cl*				ig_cl_gpu,
-					const	__global	float*				v,
-					const				float				epsilon_fl
+float m_eval_deriv(output_type_cl* c,
+	change_cl* g,
+	m_cl* m_cl_gpu,
+	__constant	p_cl* p_cl_gpu,
+	__constant	ig_cl* ig_cl_gpu,
+	const	__global	float* v,
+	const				float				epsilon_fl
 ) {
 	set(c, &m_cl_gpu->ligand.rigid, m_cl_gpu->m_coords.coords, m_cl_gpu->atoms, m_cl_gpu->m_num_movable_atoms, epsilon_fl);
 
-	float e = ig_eval_deriv(	c,
-								g, 
-								v[1],				
-								ig_cl_gpu,
-								m_cl_gpu,
-								epsilon_fl							
-							);
-	
-	e += eval_interacting_pairs_deriv(	p_cl_gpu,
-										v[0],
-										&m_cl_gpu->ligand.pairs,
-										&m_cl_gpu->m_coords,
-										&m_cl_gpu->minus_forces,
-										epsilon_fl
-									);
+	float e = ig_eval_deriv(c,
+		g,
+		v[1],
+		ig_cl_gpu,
+		m_cl_gpu,
+		epsilon_fl
+	);
+
+	e += eval_interacting_pairs_deriv(p_cl_gpu,
+		v[0],
+		&m_cl_gpu->ligand.pairs,
+		&m_cl_gpu->m_coords,
+		&m_cl_gpu->minus_forces,
+		epsilon_fl
+	);
 
 	POT_deriv(&m_cl_gpu->minus_forces, &m_cl_gpu->ligand.rigid, &m_cl_gpu->m_coords, g);
 
@@ -586,9 +600,9 @@ inline void find_change_index_write(change_cl* g, int index, float data) {
 	printf("\nKernel2:find_change_index_write() ERROR!"); // Shouldn't be here
 }
 
-void minus_mat_vec_product(	const		matrix*		h,
-							const		change_cl*	in,
-										change_cl*  out
+void minus_mat_vec_product(const		matrix* h,
+	const		change_cl* in,
+	change_cl* out
 ) {
 	int n = h->dim;
 	for (int i = 0; i < n; i++) {
@@ -601,9 +615,9 @@ void minus_mat_vec_product(	const		matrix*		h,
 }
 
 
-inline float scalar_product(	const	change_cl*			a,
-								const	change_cl*			b,
-								int							n
+inline float scalar_product(const	change_cl* a,
+	const	change_cl* b,
+	int							n
 ) {
 	float tmp = 0;
 	for (int i = 0; i < n; i++) {
@@ -613,19 +627,19 @@ inline float scalar_product(	const	change_cl*			a,
 }
 
 
-float line_search(					 	m_cl*				m_cl_gpu,
-							__constant	p_cl*				p_cl_gpu,
-							__constant	ig_cl*				ig_cl_gpu,
-										int					n,
-					const				output_type_cl*		x,
-					const				change_cl*			g,
-					const				float				f0,
-					const				change_cl*			p,
-										output_type_cl*		x_new,
-										change_cl*			g_new,
-										float*				f1,
-					const				float				epsilon_fl,
-					const	__global	float*				hunt_cap
+float line_search(m_cl* m_cl_gpu,
+	__constant	p_cl* p_cl_gpu,
+	__constant	ig_cl* ig_cl_gpu,
+	int					n,
+	const				output_type_cl* x,
+	const				change_cl* g,
+	const				float				f0,
+	const				change_cl* p,
+	output_type_cl* x_new,
+	change_cl* g_new,
+	float* f1,
+	const				float				epsilon_fl,
+	const	__global	float* hunt_cap
 ) {
 	const float c0 = 0.0001;
 	const int max_trials = 10;
@@ -640,14 +654,14 @@ float line_search(					 	m_cl*				m_cl_gpu,
 
 		output_type_cl_increment(x_new, p, alpha, epsilon_fl);
 
-		*f1 =  m_eval_deriv(x_new,
-							g_new,
-							m_cl_gpu,
-							p_cl_gpu,
-							ig_cl_gpu,
-							hunt_cap,
-							epsilon_fl
-							);
+		*f1 = m_eval_deriv(x_new,
+			g_new,
+			m_cl_gpu,
+			p_cl_gpu,
+			ig_cl_gpu,
+			hunt_cap,
+			epsilon_fl
+		);
 
 		if (*f1 - f0 < c0 * alpha * pg)
 			break;
@@ -657,15 +671,15 @@ float line_search(					 	m_cl*				m_cl_gpu,
 }
 
 
-bool bfgs_update(			matrix*			h,
-					const	change_cl*		p,
-					const	change_cl*		y,
-					const	float			alpha,
-					const	float			epsilon_fl
+bool bfgs_update(matrix* h,
+	const	change_cl* p,
+	const	change_cl* y,
+	const	float			alpha,
+	const	float			epsilon_fl
 ) {
 
 	const float yp = scalar_product(y, p, h->dim);
-	
+
 	if (alpha * yp < epsilon_fl) return false;
 	change_cl minus_hy;
 	change_cl_init_with_change(&minus_hy, y);
@@ -677,8 +691,8 @@ bool bfgs_update(			matrix*			h,
 	for (int i = 0; i < n; i++) {
 		for (int j = i; j < n; j++) {
 			float tmp = alpha * r * (find_change_index_read(&minus_hy, i) * find_change_index_read(p, j)
-									+ find_change_index_read(&minus_hy, j) * find_change_index_read(p, i)) +
-									+alpha * alpha * (r * r * yhy + r) * find_change_index_read(p, i) * find_change_index_read(p, j);
+				+ find_change_index_read(&minus_hy, j) * find_change_index_read(p, i)) +
+				+alpha * alpha * (r * r * yhy + r) * find_change_index_read(p, i) * find_change_index_read(p, j);
 
 			h->data[i + j * (j + 1) / 2] += tmp;
 		}
@@ -689,23 +703,24 @@ bool bfgs_update(			matrix*			h,
 
 
 
-void bfgs(					output_type_cl*			x,
-								change_cl*			g,
-								m_cl*				m_cl_gpu,
-					__constant	p_cl*				p_cl_gpu,
-					__constant	ig_cl*				ig_cl_gpu,
-			const	__global	float*				hunt_cap,
-			const				float				epsilon_fl,
-			const				int					max_steps,
-								bool				global,
-						   global_container*        g_container,
-			 __private   individual_container*      circularvisited,
-								int					thread,
-								int                 search_depth,
-								vec3_cl             origin,
-								vec3_cl             box_size,
-					__global    ele_cl*             global_ptr
-) 
+void bfgs(                  output_type_cl*         x,
+	                        change_cl*              g,
+							m_cl*					m_cl_gpu,
+				__constant	p_cl*					p_cl_gpu,
+				__constant	ig_cl*					ig_cl_gpu,
+		const	__global	float*					hunt_cap,
+		const				float					epsilon_fl,
+		const				int						max_steps,
+							bool					global_flag,
+							global_container*		g_container,
+				__private   individual_container*	circularvisited,
+							int						thread,
+							int						search_depth,
+							vec3_cl*				origin,
+							vec3_cl*				box_size,
+				__global    ele_cl*					global_ptr,
+				__global    int*					count_id
+)
 {
 	int n = 3 + 3 + x->lig_torsion_size; // the dimensions of matirx
 
@@ -718,57 +733,61 @@ void bfgs(					output_type_cl*			x,
 
 	output_type_cl x_new;
 	output_type_cl_init_with_output(&x_new, x);
-	 
-	float f0 = m_eval_deriv(	x,
-								g,
-								m_cl_gpu,
-								p_cl_gpu,
-								ig_cl_gpu,
-								hunt_cap,
-								epsilon_fl
-							);
 
-	float f_orig = f0;
-	// Init g_orig, x_orig
-	change_cl g_orig;
-	change_cl_init_with_change(&g_orig, g);
-	output_type_cl x_orig;
-	output_type_cl_init_with_output(&x_orig, x);
-	// Init p
-	change_cl p;
-	change_cl_init_with_change(&p, g);
-
-	float f_values[MAX_NUM_OF_BFGS_STEPS + 1];
-	f_values[0] = f0;
-
+	float f0 = m_eval_deriv(x,
+		g,
+		m_cl_gpu,
+		p_cl_gpu,
+		ig_cl_gpu,
+		hunt_cap,
+		epsilon_fl
+	);
 	int ret = 0;
-	ret = global_interesting_cl(g_container, x, f0, g, 0, thread, search_depth, origin, box_size, global_ptr);
+	ret = global_interesting_cl(g_container, x, f0, g, 0, thread, search_depth, origin, box_size, global_ptr, count_id);
 	if (ret >= 0 && individual_interesting_cl(circularvisited, x, f0, g, ret) >= 0) {
 		x->e = f0;
 	}
+	/*ret = global_interesting_cl(g_container, x, f0, g, 0, thread, search_depth, origin, box_size, global_ptr, count_id);
+	if (ret >= 0 && individual_interesting_cl(circularvisited, x, f0, g, ret) >= 0) {
+		x->e = f0;
+	}*/
 	else {
 		add_to_individual_buffer(circularvisited, x, f0, g);
-	
+
+		float f_orig = f0;
+		// Init g_orig, x_orig
+		change_cl g_orig;
+		change_cl_init_with_change(&g_orig, g);
+		output_type_cl x_orig;
+		output_type_cl_init_with_output(&x_orig, x);
+		// Init p
+		change_cl p;
+		change_cl_init_with_change(&p, g);
+
+		float f_values[MAX_NUM_OF_BFGS_STEPS + 1];
+		f_values[0] = f0;
+
+		
 
 		for (int step = 0; step < max_steps; step++) {
 
 			minus_mat_vec_product(&h, g, &p);
 			float f1 = 0;
 
-			const float alpha = line_search(	m_cl_gpu,
-												p_cl_gpu,
-												ig_cl_gpu,
-												n,
-												x,
-												g,
-												f0,
-												&p,
-												&x_new,
-												&g_new,
-												&f1,
-												epsilon_fl,
-												hunt_cap
-											);
+			const float alpha = line_search(m_cl_gpu,
+				p_cl_gpu,
+				ig_cl_gpu,
+				n,
+				x,
+				g,
+				f0,
+				&p,
+				&x_new,
+				&g_new,
+				&f1,
+				epsilon_fl,
+				hunt_cap
+			);
 
 			change_cl y;
 			change_cl_init_with_change(&y, &g_new);
@@ -793,18 +812,16 @@ void bfgs(					output_type_cl*			x,
 			bool h_updated = bfgs_update(&h, &p, &y, alpha, epsilon_fl);
 			add_to_individual_buffer(circularvisited, x, f0, g);
 		}
-	}
+		if (!global_flag) {
+			add_to_global_buffer(&g_container, thread, search_depth, x, f0, g, origin, box_size, global_ptr, count_id);
+		}
+		if (!(f0 <= f_orig)) {
+			f0 = f_orig;
+			output_type_cl_init_with_output(x, &x_orig);
+			change_cl_init_with_change(g, &g_orig);
+		}
 
-	if (!global) {
-		add_to_global_buffer(g_container, thread, search_depth, x, f0, g, origin, box_size, global_ptr);
-	}
-
-	if (!(f0 <= f_orig)) {
-		f0 = f_orig;
-		output_type_cl_init_with_output(x, &x_orig);
-		change_cl_init_with_change(g, &g_orig);
-	}
-
-	// write output_type_cl energy
-	x->e = f0;
+		// write output_type_cl energy
+		x->e = f0;
+	}	
 }

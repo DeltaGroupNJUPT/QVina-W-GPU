@@ -31,6 +31,8 @@
 #include <iostream>
 
 #include <fstream>
+#include <boost/progress.hpp>
+#include <thread>
 
 //output_type monte_carlo::operator()(model& m, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, visited* visited) const {
 //	output_container tmp;
@@ -126,6 +128,12 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	VINA_CHECK(out.front().e <= out.back().e); // make sure the sorting worked in the correct order
 }
 */
+int get_n(int thread, int search_depth) {
+	for (int i = 0;; i += 3) {
+		if (thread * search_depth < pow(2, i))
+			return i;
+	}
+}
 
 std::vector<output_type> monte_carlo::cl_to_vina(output_type_cl result_ptr[], int exhaus) const {
 	std::vector<output_type> results_vina;
@@ -232,6 +240,34 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 }
 
 #else
+
+volatile bool finished = false; //20211119 Glinttsd
+void print_process() {
+	int count = 0;
+	printf("\n");
+	do
+	{
+#ifdef WIN32
+		boost::detail::win32::Sleep(100);
+#else
+		sleep(1);
+#endif
+		printf("\rPerform docking|");
+		for (int i = 0; i < count; i++)printf(" ");
+		printf("=======");
+		for (int i = 0; i < 30 - count; i++)printf(" ");
+		printf("|"); fflush(stdout);
+
+		count++;
+		count %= 30;
+	} while (finished != true);
+	printf("\rPerform docking|");
+	for (int i = 0; i < 16; i++)printf("=");
+	printf("done");
+	for (int i = 0; i < 17; i++)printf("=");
+	printf("|\n"); fflush(stdout);
+}
+
 void monte_carlo::operator()(model& m, output_container& out, output_container& history, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, circularvisited* tried) const
 {
 	/**************************************************************************/
@@ -253,7 +289,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	size_t program_size;
 
 	//Read kernel source code
-#ifdef BUILD_KERNEL_FROM_SOURCE
+//#ifdef BUILD_KERNEL_FROM_SOURCE
 	const std::string default_work_path = ".";
 	const std::string include_path = default_work_path + "/OpenCL/inc"; //FIX it
 	const std::string addtion = "";
@@ -263,8 +299,8 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	std::string file_paths[NUM_OF_FILES] = { default_work_path + "/OpenCL/src/kernels/code_head.cpp",
 												default_work_path + "/OpenCL/src/kernels/mutate_conf.cpp",
 												default_work_path + "/OpenCL/src/kernels/matrix.cpp",
-												default_work_path + "/OpenCL/src/kernels/quasi_newton.cpp",
 												default_work_path + "/OpenCL/src/kernels/visited.cpp",
+												default_work_path + "/OpenCL/src/kernels/quasi_newton.cpp",												
 												default_work_path + "/OpenCL/src/kernels/kernel2.cl" }; // The order of files is important!
 
 	read_n_file(program_file_n, program_size_n, file_paths, NUM_OF_FILES);
@@ -280,9 +316,10 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	program_cl = clCreateProgramWithSource(context, 1, (const char**)&final_files_char, &final_size, &err); checkErr(err);
 	SetupBuildProgramWithSource(program_cl, NULL, devices, include_path, addtion);
 	SaveProgramToBinary(program_cl, "Kernel2_Opt.bin");
-}
-#endif
 
+//#endif
+	printf("\nSearch depth is set to %d", search_depth);
+	std::thread console_thread(print_process);
 	program_cl = SetupBuildProgramWithBinary(context, devices, "Kernel2_Opt.bin");
 
 	err = clUnloadPlatformCompiler(platforms[gpu_platform_id]); checkErr(err);
@@ -556,9 +593,17 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 			sizeof(float), &lig_tor_size, 0, NULL, NULL); checkErr(err);
 	}
 
+	int code_num = get_n(thread, search_depth);
+
 	cl_mem best_e_gpu;
 	CreateDeviceBuffer(&best_e_gpu, CL_MEM_READ_WRITE, thread * sizeof(float), context);
 	err = clEnqueueFillBuffer(queue, best_e_gpu, &max_fl, sizeof(float), 0, thread * sizeof(float), 0, NULL, NULL); checkErr(err);
+
+	cl_mem count_gpu;
+	int init_i = 0;
+	size_t count_gpu_size = pow(2, code_num - 3) * sizeof(int);
+	CreateDeviceBuffer(&count_gpu, CL_MEM_READ_WRITE, count_gpu_size, context);
+	err = clEnqueueFillBuffer(queue, count_gpu, &init_i, sizeof(int), 0, count_gpu_size, 0, NULL, NULL); checkErr(err);
 
 	cl_mem rand_maps_gpu;
 	CreateDeviceBuffer(&rand_maps_gpu, CL_MEM_READ_ONLY, rand_maps_size, context);
@@ -573,17 +618,17 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	CreateDeviceBuffer(&m_cl_gpu, CL_MEM_READ_WRITE, m_cl_size, context);
 	err = clEnqueueWriteBuffer(queue, m_cl_gpu, false, 0, m_cl_size, &m_cl, 0, NULL, NULL); checkErr(err);
 
-	//¿ª±Ùglobal_bufferµÄÄÚ´æ
-	size_t global_buffer_size = thread * search_depth * sizeof(output_type_cl);
-	cl_mem globa_buffer_gpu;
-	CreateDeviceBuffer(&globa_buffer_gpu, CL_MEM_READ_WRITE, global_buffer_size, context);
-	err = clEnqueueWriteBuffer(queue, globa_buffer_gpu, false, 0, global_buffer_size, globa_buffer_gpu, 0, NULL, NULL); checkErr(err);
-
-
 	// Preparing p related data
 	cl_mem p_cl_gpu;
 	CreateDeviceBuffer(&p_cl_gpu, CL_MEM_READ_ONLY, p_cl_size, context);
 	err = clEnqueueWriteBuffer(queue, p_cl_gpu, false, 0, p_cl_size, &p_cl, 0, NULL, NULL); checkErr(err);
+
+	//allocate global_buffer
+	ele_cl output_type_c;
+	size_t global_buffer_size = pow(2, code_num) * sizeof(ele_cl);
+	cl_mem globa_buffer_gpu;
+	CreateDeviceBuffer(&globa_buffer_gpu, CL_MEM_READ_WRITE, global_buffer_size, context);
+	//err = clEnqueueWriteBuffer(queue, globa_buffer_gpu, false, 0, global_buffer_size, &output_type_c, 0, NULL, NULL); checkErr(err);
 
 	// Preparing ig related data (cache related data)
 	cl_mem ig_cl_gpu;
@@ -626,6 +671,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetKernelArg(kernels[0], 20, sizeof(float), &size_y);
 	SetKernelArg(kernels[0], 21, sizeof(float), &size_z);
 	SetKernelArg(kernels[0], 22, sizeof(cl_mem), &globa_buffer_gpu);
+	SetKernelArg(kernels[0], 23, sizeof(cl_mem), &count_gpu);
 	/**************************************************************************/
 	/****************************   Start kernel    ***************************/
 	/**************************************************************************/
@@ -668,10 +714,14 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	err = clReleaseMemObject(authentic_v_gpu); checkErr(err);
 	err = clReleaseMemObject(results); checkErr(err);
 	err = clReleaseMemObject(globa_buffer_gpu); checkErr(err);
+	err = clReleaseMemObject(count_gpu); checkErr(err);
 
 	free(ig_cl_ptr);
 	free(rand_maps);
 	for (int i = 0; i < thread; i++)free(rand_molec_struc_vec[i]);
+
+	finished = true;
+	console_thread.join(); // wait the thread finish
 
 #ifdef DISPLAY_ANALYSIS
 	// Output Analysis
