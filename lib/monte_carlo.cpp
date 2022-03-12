@@ -242,7 +242,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 
 #else
 
-volatile bool finished = false; //20211119 Glinttsd
+volatile enum { FINISH, DOCKING, ABORT } status; // 20220313 Glinttsd
 void print_process() {
 	int count = 0;
 	printf("\n");
@@ -261,12 +261,21 @@ void print_process() {
 
 		count++;
 		count %= 30;
-	} while (finished != true);
-	printf("\rPerform docking|");
-	for (int i = 0; i < 16; i++)printf("=");
-	printf("done");
-	for (int i = 0; i < 17; i++)printf("=");
-	printf("|\n"); fflush(stdout);
+	} while (status == DOCKING);
+	if (status == FINISH) {
+		printf("\rPerform docking|");
+		for (int i = 0; i < 16; i++)printf("=");
+		printf("done");
+		for (int i = 0; i < 17; i++)printf("=");
+		printf("|\n"); fflush(stdout);
+	}
+	else if (status == ABORT) {
+		printf("\rPerform docking|");
+		for (int i = 0; i < 16; i++)printf("=");
+		printf("error");
+		for (int i = 0; i < 16; i++)printf("=");
+		printf("|\n"); fflush(stdout);
+	}
 }
 
 void monte_carlo::operator()(model& m, output_container& out, output_container& history, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, circularvisited* tried) const
@@ -688,7 +697,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 
 	clWaitForEvents(1, &monte_clarlo_cl);
 
-	finished = true;
+	status = FINISH;
 	console_thread.join(); // wait the thread finish
 
 	// Maping result data
@@ -697,9 +706,8 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 																		0, NULL, NULL, &err); checkErr(err);
 
 	std::vector<output_type> result_vina = cl_to_vina(result_ptr, thread);
-	if (result_vina.size() == 0) {
-		printf("Error in the device part\n"); exit(-1);
-	}
+	// if empty, something goes wrong in the device part
+	if (result_vina.size() == 0) { status = ABORT; console_thread.join(); exit(-1); }
 
 	// Unmaping result data
 	err = clEnqueueUnmapMemObject(queue, results, result_ptr, 0, NULL, NULL); checkErr(err);
