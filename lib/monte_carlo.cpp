@@ -320,7 +320,9 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 
 #endif
 	printf("\nSearch depth is set to %d", search_depth);
+
 	std::thread console_thread(print_process);
+
 	program_cl = SetupBuildProgramWithBinary(context, devices, "Kernel2_Opt.bin");
 
 	err = clUnloadPlatformCompiler(platforms[gpu_platform_id]); checkErr(err);
@@ -654,7 +656,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetKernelArg(kernels[0], 2, sizeof(cl_mem), &p_cl_gpu);
 	SetKernelArg(kernels[0], 3, sizeof(cl_mem), &rand_molec_struc_vec_gpu);
 	SetKernelArg(kernels[0], 4, sizeof(cl_mem), &best_e_gpu);
-	SetKernelArg(kernels[0], 5, sizeof(size_t), &quasi_newton_par_max_steps);
+	SetKernelArg(kernels[0], 5, sizeof(int), &quasi_newton_par_max_steps);
 	SetKernelArg(kernels[0], 6, sizeof(unsigned), &num_steps);
 	SetKernelArg(kernels[0], 7, sizeof(float), &mutation_amplitude_float);
 	SetKernelArg(kernels[0], 8, sizeof(cl_mem), &rand_maps_gpu);
@@ -678,6 +680,8 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	/**************************************************************************/
 	size_t global_size[2] = { 512, 32 };
 	size_t local_size[2] = { 16,8 };
+	/*size_t global_size[2] = { 1, 1 };
+	size_t local_size[2] = { 1,1 };*/
 
 	cl_event monte_clarlo_cl;
 	err = clEnqueueNDRangeKernel(queue, kernels[0], 2, 0, global_size, local_size, 0, NULL, &monte_clarlo_cl); checkErr(err);

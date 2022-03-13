@@ -125,10 +125,11 @@ void kernel2(	__global	m_cl*			m_cl_global,
 	int gx = get_global_id(0);
 	int gy = get_global_id(1);
 	int gs = get_global_size(0);
-	int gl = get_global_linear_id();
-
+	int gx_offset = get_global_offset(0);
+	int gy_offset = get_global_offset(1);
+	int gl = (gy - gy_offset)* gs + (gx - gx_offset);
+	
 	float best_e = INFINITY;
-
 	vec3_cl origin = origin_init(center_x, center_y, center_z);
 	vec3_cl boxsize = boxsize_init(size_x, size_y, size_z);
 
@@ -138,7 +139,6 @@ void kernel2(	__global	m_cl*			m_cl_global,
 		)
 	{
 		//if (gll % 100 == 0)printf("\nThread %d START", gll);
-
 		m_cl m_cl_gpu;
 		m_cl_init_with_m_cl(m_cl_global, &m_cl_gpu);
 
@@ -195,7 +195,6 @@ void kernel2(	__global	m_cl*			m_cl_global,
 				global_ptr,
 				count_id
 			);
-
 			float n = generate_n(rand_maps_gpu->pi_map, map_index);
 
 			if (step == 0 || metropolis_accept(tmp.e, candidate.e, 1.2, n)) {
@@ -238,9 +237,10 @@ void kernel2(	__global	m_cl*			m_cl_global,
 			}
 
 		}
-
+		
 		// write the best conformation back to CPU
 		write_back(&results[gll], &best_out);
 		//if (gll % 100 == 0)printf("\nThread %d FINISH", gll);
+		
 	}
 }
