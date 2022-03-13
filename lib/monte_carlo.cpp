@@ -33,6 +33,7 @@
 #include <fstream>
 #include <boost/progress.hpp>
 #include <thread>
+//#include <parallel_mc.cpp>
 
 //output_type monte_carlo::operator()(model& m, const precalculate& p, const igrid& ig, const precalculate& p_widened, const igrid& ig_widened, const vec& corner1, const vec& corner2, incrementable* increment_me, rng& generator, visited* visited) const {
 //	output_container tmp;
@@ -248,7 +249,7 @@ void print_process() {
 	do
 	{
 #ifdef WIN32
-		boost::detail::win32::Sleep(100);
+		Sleep(100);
 #else
 		sleep(1);
 #endif
@@ -289,7 +290,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	size_t program_size;
 
 	//Read kernel source code
-//#ifdef BUILD_KERNEL_FROM_SOURCE
+#ifdef BUILD_KERNEL_FROM_SOURCE
 	const std::string default_work_path = ".";
 	const std::string include_path = default_work_path + "/OpenCL/inc"; //FIX it
 	const std::string addtion = "";
@@ -317,7 +318,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetupBuildProgramWithSource(program_cl, NULL, devices, include_path, addtion);
 	SaveProgramToBinary(program_cl, "Kernel2_Opt.bin");
 
-//#endif
+#endif
 	printf("\nSearch depth is set to %d", search_depth);
 	std::thread console_thread(print_process);
 	program_cl = SetupBuildProgramWithBinary(context, devices, "Kernel2_Opt.bin");
@@ -328,10 +329,10 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	char kernel_name[][50] = { "kernel2" };
 	SetupKernel(kernels, program_cl, 1, kernel_name);
 
-	int max_wg_size; // max work item within one work group
-	int max_wi_size[3]; // max work item within each dimension(global)
-	err = clGetDeviceInfo(devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(int), &max_wg_size, NULL); checkErr(err);
-	err = clGetDeviceInfo(devices[0], CL_DEVICE_MAX_WORK_ITEM_SIZES, 3 * sizeof(int), &max_wi_size, NULL); checkErr(err);
+	size_t max_wg_size; // max work item within one work group
+	size_t max_wi_size[3]; // max work item within each dimension(global)
+	err = clGetDeviceInfo(devices[0], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &max_wg_size, NULL); checkErr(err);
+	err = clGetDeviceInfo(devices[0], CL_DEVICE_MAX_WORK_ITEM_SIZES, 3 * sizeof(size_t), &max_wi_size, NULL); checkErr(err);
 
 	/**************************************************************************/
 	/*********    Generate random seeds (depend on exhaustiveness)    *********/
@@ -626,8 +627,8 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	//allocate global_buffer
 	ele_cl output_type_c;
 	size_t global_buffer_size = pow(2, code_num) * sizeof(ele_cl);
-	cl_mem globa_buffer_gpu;
-	CreateDeviceBuffer(&globa_buffer_gpu, CL_MEM_READ_WRITE, global_buffer_size, context);
+	cl_mem global_buffer_gpu;
+	CreateDeviceBuffer(&global_buffer_gpu, CL_MEM_READ_WRITE, global_buffer_size, context);
 	//err = clEnqueueWriteBuffer(queue, globa_buffer_gpu, false, 0, global_buffer_size, &output_type_c, 0, NULL, NULL); checkErr(err);
 
 	// Preparing ig related data (cache related data)
@@ -656,7 +657,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetKernelArg(kernels[0], 5, sizeof(size_t), &quasi_newton_par_max_steps);
 	SetKernelArg(kernels[0], 6, sizeof(unsigned), &num_steps);
 	SetKernelArg(kernels[0], 7, sizeof(float), &mutation_amplitude_float);
-	SetKernelArg(kernels[0], 8, sizeof(int), &rand_maps_gpu);
+	SetKernelArg(kernels[0], 8, sizeof(cl_mem), &rand_maps_gpu);
 	SetKernelArg(kernels[0], 9, sizeof(float), &epsilon_fl_float);
 	SetKernelArg(kernels[0], 10, sizeof(cl_mem), &hunt_cap_gpu);
 	SetKernelArg(kernels[0], 11, sizeof(cl_mem), &authentic_v_gpu);
@@ -670,7 +671,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	SetKernelArg(kernels[0], 19, sizeof(float), &size_x);
 	SetKernelArg(kernels[0], 20, sizeof(float), &size_y);
 	SetKernelArg(kernels[0], 21, sizeof(float), &size_z);
-	SetKernelArg(kernels[0], 22, sizeof(cl_mem), &globa_buffer_gpu);
+	SetKernelArg(kernels[0], 22, sizeof(cl_mem), &global_buffer_gpu);
 	SetKernelArg(kernels[0], 23, sizeof(cl_mem), &count_gpu);
 	/**************************************************************************/
 	/****************************   Start kernel    ***************************/
@@ -683,12 +684,18 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 
 	clWaitForEvents(1, &monte_clarlo_cl);
 
+	finished = true;
+	console_thread.join(); // wait the thread finish
+
 	// Maping result data
 	output_type_cl* result_ptr = (output_type_cl*)clEnqueueMapBuffer(queue, results, CL_TRUE, CL_MAP_READ,
-		0, thread * sizeof(output_type_cl),
-		0, NULL, NULL, &err); checkErr(err);
+																		0, thread * sizeof(output_type_cl),
+																		0, NULL, NULL, &err); checkErr(err);
 
 	std::vector<output_type> result_vina = cl_to_vina(result_ptr, thread);
+	if (result_vina.size() == 0) {
+		printf("Error in the device part\n"); exit(-1);
+	}
 
 	// Unmaping result data
 	err = clEnqueueUnmapMemObject(queue, results, result_ptr, 0, NULL, NULL); checkErr(err);
@@ -713,15 +720,26 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	err = clReleaseMemObject(hunt_cap_gpu); checkErr(err);
 	err = clReleaseMemObject(authentic_v_gpu); checkErr(err);
 	err = clReleaseMemObject(results); checkErr(err);
-	err = clReleaseMemObject(globa_buffer_gpu); checkErr(err);
+	err = clReleaseMemObject(global_buffer_gpu); checkErr(err);
 	err = clReleaseMemObject(count_gpu); checkErr(err);
 
 	free(ig_cl_ptr);
 	free(rand_maps);
 	for (int i = 0; i < thread; i++)free(rand_molec_struc_vec[i]);
 
-	finished = true;
-	console_thread.join(); // wait the thread finish
+	// Output Analysis
+	cl_ulong time_start, time_end;
+	double total_time;
+	err = clGetEventProfilingInfo(monte_clarlo_cl, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL); checkErr(err);
+	err = clGetEventProfilingInfo(monte_clarlo_cl, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL); checkErr(err);
+	total_time = time_end - time_start;
+	printf("GPU monte carlo runtime: %0.3f s", (total_time / 1000000000.0));
+
+	std::ofstream file("gpu_runtime.txt");
+	if (file.is_open()) {
+		file << "GPU mento carlo runtime = " << (total_time / 1000000000.0) << "s" << std::endl;
+		file.close();
+	}
 
 #ifdef DISPLAY_ANALYSIS
 	// Output Analysis

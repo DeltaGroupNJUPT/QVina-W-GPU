@@ -831,6 +831,11 @@ Thank you!\n";
 	}
 
 	clock_t end = clock();
+	std::ofstream file("gpu_runtime.txt", std::ios::app);
+	if (file.is_open()) {
+		file << "GPU total runtime = " << (double)(end - start) / CLOCKS_PER_SEC << "s" << std::endl;
+		file.close();
+	}
 	std::cout << "QVina-W-GPU total runtime = " << (double)(end - start) / CLOCKS_PER_SEC << " s" << std::endl;
 
 }

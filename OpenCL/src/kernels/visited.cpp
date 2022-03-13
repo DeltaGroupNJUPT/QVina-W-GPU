@@ -31,14 +31,14 @@ inline float dist2_g(ele_cl* list, output_type_cl* now_x) {
 		float d = list->orientation[i] - now_x->orientation[i];
 		out += d * d;
 	}
-	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++) {
+	for (int i = 0; i < now_x->lig_torsion_size; i++) {
 		float d = list->lig_torsion[i] - now_x->lig_torsion[i];
 		out += d * d;
 	}
-	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
+	/*for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
 		float d = list->flex_torsion[i] - now_x->flex_torsion[i];
 		out += d * d;
-	}
+	}*/
 	return out;
 }
 
@@ -62,8 +62,8 @@ inline void ele_init_cl(ele_cl* present_ele, output_type_cl* x_cl, float f_cl, c
 	
 	for (int i = 0; i < 3; i++)present_ele->position[i] = x_cl->position[i];
 	for (int i = 0; i < 4; i++)present_ele->orientation[i] = x_cl->orientation[i];
-	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++)present_ele->lig_torsion[i] = x_cl->lig_torsion[i];
-	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++)present_ele->flex_torsion[i] = x_cl->flex_torsion[i];
+	for (int i = 0; i < x_cl->lig_torsion_size; i++)present_ele->lig_torsion[i] = x_cl->lig_torsion[i];
+	/*for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++)present_ele->flex_torsion[i] = x_cl->flex_torsion[i];*/
 	present_ele->energy = f_cl;
 	present_ele->d_zero = 0;
 	present_ele->d_positive = 0;
@@ -85,20 +85,20 @@ inline void ele_init_cl(ele_cl* present_ele, output_type_cl* x_cl, float f_cl, c
 		else if (d_cl->orientation[i] > 0)
 			present_ele->d_positive |= bitMask;
 	}
-	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++) {
+	for (int i = 0; i < x_cl->lig_torsion_size; i++) {
 		bitMask = ONE << i;
 		if (d_cl->lig_torsion[i] == 0)
 			present_ele->d_zero |= bitMask;
 		else if (d_cl->lig_torsion[i] > 0)
 			present_ele->d_positive |= bitMask;
 	}
-	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
+	/*for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
 		bitMask = ONE << i;
 		if (d_cl->flex_torsion[i] == 0)
 			present_ele->d_zero |= bitMask;
 		else if (d_cl->flex_torsion[i] > 0)
 			present_ele->d_positive |= bitMask;
-	}
+	}*/
 }
 
 
@@ -176,7 +176,6 @@ inline void circularvisited_init_cl(individual_container* list) {
 	list->p = 0;
 	list->full = false;
 	list->counter = 0;
-
 }
 
 inline void global_init_cl(global_container* g_container) {
@@ -253,68 +252,35 @@ inline void add_to_global_buffer(	global_container*		global_c,
 	//add e to global buffer according to binary_ID
 	for (int i = 0; i < 3; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).position[i] = e.position[i];
 	for (int i = 0; i < 4; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).orientation[i] = e.orientation[i];
-	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).lig_torsion[i] = e.lig_torsion[i];
-	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).flex_torsion[i] = e.flex_torsion[i];
+	for (int i = 0; i < conf_v->lig_torsion_size; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).lig_torsion[i] = e.lig_torsion[i];
+	//for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) (*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).flex_torsion[i] = e.flex_torsion[i];
 	(*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).energy = e.energy;
 	(*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).d_zero = e.d_zero;
 	(*(ptr + global_c->binary_ID * 8 + count_id[global_c->binary_ID])).d_positive = e.d_positive;
 	count_id[global_c->binary_ID]++;
-//	printf("global_c->binary_ID:%d,count:%d\n", global_c->binary_ID,count_id[global_c->binary_ID]);
-	if (count_id[global_c->binary_ID] > 8) {
-		count_id[global_c->binary_ID] = 8;
+	if (count_id[global_c->binary_ID] >= 8) {
+		count_id[global_c->binary_ID] %= 8;
 	}
 }
 
-inline void getPointsWithinCutoff_cl(		//float				cutoff,
-											global_container*	global_c,
-											//int				thread,
-											//int				search_depth,
+inline void getPointsWithinCutoff_cl(		global_container*	global_c,
 											output_type_cl*		point,
 											ele_cl*				results,
-											//float*				distances,
-											//vec3_cl*			origin,
-											//vec3_cl*			dimension,
 							__global		ele_cl*				ptr,
 							__global		int*				count_id
 )
 {
-	//global_c->binary_ID = set_Binary_Id_cl(thread, search_depth, point, origin, dimension);
-	/*
-	if (dimension->x <= cutoff && dimension->y <= cutoff && dimension->z <= cutoff) {*/
-	/*取global_c->binary_ID对应的global buffer里面的点，结果存放在result数组里面
-	并把这些点与待检测点的n维欧式距离添加到distances数组里面*/
-	//printf("count:%d\n", count_id[global_c->binary_ID]);
 	global_c->counter = count_id[global_c->binary_ID];
 	for (int m = 0; m < count_id[global_c->binary_ID]; m++) {
 		for (int j = 0; j < 3; j++) results[m].position[j] = (*(ptr + global_c->binary_ID * 8 + m)).position[j];
 		for (int j = 0; j < 4; j++) results[m].orientation[j] = (*(ptr + global_c->binary_ID * 8 + m)).orientation[j];
-		for (int j = 0; j < MAX_NUM_OF_LIG_TORSION; j++) results[m].lig_torsion[j] = (*(ptr + global_c->binary_ID * 8 + m)).lig_torsion[j];
-		for (int j = 0; j < MAX_NUM_OF_FLEX_TORSION; j++) results[m].flex_torsion[j] = (*(ptr + global_c->binary_ID * 8 + m)).flex_torsion[j];
+		for (int j = 0; j < point->lig_torsion_size; j++) results[m].lig_torsion[j] = (*(ptr + global_c->binary_ID * 8 + m)).lig_torsion[j];
+		/*for (int j = 0; j < MAX_NUM_OF_FLEX_TORSION; j++) results[m].flex_torsion[j] = (*(ptr + global_c->binary_ID * 8 + m)).flex_torsion[j];*/
 		results[m].energy = (*(ptr + global_c->binary_ID * 8 + m)).energy;
 		results[m].d_zero = (*(ptr + global_c->binary_ID * 8 + m)).d_zero;
 		results[m].d_positive = (*(ptr + global_c->binary_ID * 8 + m)).d_positive;
 	//	distances[m] = dist2_g(&results[m], point);
 	}
-
-	/*}
-	else {
-		if (count_id[global_c->binary_ID] > 0) {
-			for (int i = 0; i < count_id[global_c->binary_ID]; i++) {
-				float dist2_3D = dist2_3D_cl(ptr + global_c->binary_ID * 8 + i, point);
-				if (dist2_3D <= cutoff * cutoff) {
-					for (int j = 0; j < 3; j++) results[i].position[j] = (*(ptr + global_c->binary_ID * 8 + i)).position[j];
-					for (int j = 0; j < 4; j++) results[i].orientation[j] = (*(ptr + global_c->binary_ID * 8 + i)).orientation[j];
-					for (int j = 0; j < MAX_NUM_OF_LIG_TORSION; j++) results[i].lig_torsion[j] = (*(ptr + global_c->binary_ID * 8 + i)).lig_torsion[j];
-					for (int j = 0; j < MAX_NUM_OF_FLEX_TORSION; j++) results[i].flex_torsion[j] = (*(ptr + global_c->binary_ID * 8 + i)).flex_torsion[j];
-					results[i].energy = (*(ptr + global_c->binary_ID * 8 + i)).energy;
-					results[i].d_zero = (*(ptr + global_c->binary_ID * 8 + i)).d_zero;
-					results[i].d_positive = (*(ptr + global_c->binary_ID * 8 + i)).d_positive;
-					global_c->counter++;
-					distances[i] = dist2_g(&results[i], point);
-				}
-			}
-		}
-	}*/
 
 }
 
@@ -368,7 +334,7 @@ inline bool check_cl(ele_cl* list_cl, output_type_cl* now_x, float now_f, change
 			}
 		}
 	}
-	for (int i = 0; i < MAX_NUM_OF_LIG_TORSION; i++) {
+	for (int i = 0; i < now_x->lig_torsion_size; i++) {
 		bitMask = ONE << i;
 		if ((list_cl[neighbour].d_zero & bitMask) || !(now_d->lig_torsion[i])) {
 			continue;
@@ -390,7 +356,7 @@ inline bool check_cl(ele_cl* list_cl, output_type_cl* now_x, float now_f, change
 			}
 		}
 	}
-	for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
+	/*for (int i = 0; i < MAX_NUM_OF_FLEX_TORSION; i++) {
 		if ((list_cl[neighbour].d_zero & bitMask) || !(now_d->flex_torsion[i])) {
 			continue;
 		}
@@ -410,7 +376,7 @@ inline bool check_cl(ele_cl* list_cl, output_type_cl* now_x, float now_f, change
 				}
 			}
 		}
-	}
+	}*/
 }
 
 
@@ -440,7 +406,6 @@ inline int global_interesting_cl(	global_container*		global_mem,
 	getPointsWithinCutoff_cl(global_mem,now_x, nearbyPoints, ptr, count_id);
 //	getPointsWithinCutoff_cl(CUTOFF, global_mem, thread, search_depth, now_x, nearbyPoints, distances, origin, dimension, ptr, count_id);
 	int nearbyPoints_size = global_mem->counter;
-//	printf("nearbyPoints_size:%d\n", nearbyPoints_size);
 	for (int j = 0; j < nearbyPoints_size; j++) {
 		distances[j] = dist2_g(&nearbyPoints[j], now_x);
 	}
@@ -465,7 +430,6 @@ inline int global_interesting_cl(	global_container*		global_mem,
 		}
 	}
 	return i;
-
 }
 
 inline int individual_interesting_cl(individual_container* list, output_type_cl* now_x, float now_f, change_cl* now_d, int excluded) {
