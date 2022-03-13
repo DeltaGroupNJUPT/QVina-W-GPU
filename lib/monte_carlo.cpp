@@ -330,7 +330,7 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 #endif
 	printf("\nSearch depth is set to %d", search_depth);
 
-	std::thread console_thread(print_process);
+	status = DOCKING; std::thread console_thread(print_process);
 
 	program_cl = SetupBuildProgramWithBinary(context, devices, "Kernel2_Opt.bin");
 
@@ -689,8 +689,8 @@ void monte_carlo::operator()(model& m, output_container& out, output_container& 
 	/**************************************************************************/
 	size_t global_size[2] = { 512, 32 };
 	size_t local_size[2] = { 16,8 };
-	/*size_t global_size[2] = { 1, 1 };
-	size_t local_size[2] = { 1,1 };*/
+	//size_t global_size[2] = { 1, 1 };
+	//size_t local_size[2] = { 1,1 };
 
 	cl_event monte_clarlo_cl;
 	err = clEnqueueNDRangeKernel(queue, kernels[0], 2, 0, global_size, local_size, 0, NULL, &monte_clarlo_cl); checkErr(err);

@@ -21,9 +21,9 @@
 #define MAX_NUM_OF_RANDOM_MAP 1000 // not too large (stack overflow!)
 #define GRIDS_SIZE 17
 
-#define MAX_NUM_OF_GRID_MI 128//55
-#define MAX_NUM_OF_GRID_MJ 128//55
-#define MAX_NUM_OF_GRID_MK 128//81
+#define MAX_NUM_OF_GRID_MI 280//55
+#define MAX_NUM_OF_GRID_MJ 280//55
+#define MAX_NUM_OF_GRID_MK 280//81
 
 //#define GRID_MI 65//55
 //#define GRID_MJ 71//55
