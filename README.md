@@ -65,7 +65,7 @@ Note: ensure the line ending are CLRF
 
 6. type `make clean` and `make source` to build Vina-GPU that compile the kernel files on the fly (this would take some time at the first use)
 7. after a successful compiling, `Vina-GPU` can be seen in the directory 
-8. type `./Qvina-W-GPU --config ./input_file_example/2bm2_config.txt` to run QVina-W-GPU
+8. type `./QVina-W-GPU --config ./input_file_example/2bm2_config.txt` to run QVina-W-GPU
 9. once you successfully run QVina-W-GPU, its runtime can be further reduced by typing `make clean` and `make` to build it without compiling kernel files (but make sure the `Kernel2_Opt.bin` file is **unchanged**)
 
 10. other compile options: 
